@@ -58,7 +58,7 @@ def initialize_local_ssot(project_id: str, project_path: str = None) -> str:
     return f"Successfully scaffolded local SSOT in {knowledge_dir}"
 
 @mcp.tool()
-def generate_implementation_plan(project_path: str = None, provider: str = "gemini") -> str:
+def generate_implementation_plan(project_path: str = None, provider: str = "openrouter") -> str:
     """
     Acts as the Software Architect. Reads local SSOT artifacts and generates
     a massive, professional-grade implementation-plan.md.
@@ -87,7 +87,7 @@ def generate_implementation_plan(project_path: str = None, provider: str = "gemi
     return f"Implementation Plan and Agent contexts generated successfully at {output_path}"
 
 @mcp.tool()
-def generate_task_plan(project_path: str = None, provider: str = "gemini") -> str:
+def generate_task_plan(project_path: str = None, provider: str = "openrouter") -> str:
     """Generates an exhaustive Task Plan and saves it to the local workspace."""
     knowledge_dir = get_knowledge_dir(project_path)
     generator = PlanGenerator(provider=provider)
@@ -98,7 +98,7 @@ def generate_task_plan(project_path: str = None, provider: str = "gemini") -> st
     return f"Task Plan generated successfully at {output_path}"
 
 @mcp.tool()
-def generate_test_plan(project_path: str = None, provider: str = "gemini") -> str:
+def generate_test_plan(project_path: str = None, provider: str = "openrouter") -> str:
     """Generates an exhaustive Test Plan and saves it to the local workspace."""
     knowledge_dir = get_knowledge_dir(project_path)
     generator = PlanGenerator(provider=provider)

@@ -16,7 +16,7 @@ class PlanGenerator:
                 logger.warning("GEMINI_API_KEY not found in environment, plan generation may fail.")
             else:
                 self.gemini_client = genai.Client(api_key=self.api_key)
-        elif self.provider == "openrouter-meta":
+        elif self.provider == "openrouter":
             self.api_key = os.environ.get("OPENROUTER_API_KEY")
             if not self.api_key:
                 logger.warning("OPENROUTER_API_KEY not found in environment, plan generation may fail.")
@@ -47,7 +47,7 @@ class PlanGenerator:
                 )
                 return response.text
                 
-            elif self.provider == "openrouter-meta":
+            elif self.provider == "openrouter":
                 model = model_name or "meta-llama/llama-3.1-70b-instruct"
                 logger.info(f"Generating plan using Meta AI via OpenRouter: {model}...")
                 response = self.openrouter_client.chat.completions.create(
