@@ -57,56 +57,41 @@ def initialize_local_ssot(project_id: str, project_path: str = None) -> str:
     
     return f"Successfully scaffolded local SSOT in {knowledge_dir}"
 
+def _generate_and_save_plan(project_path: str | None, provider: str, system_prompt: str, filename: str, plan_name: str) -> str:
+    """Helper to generate and save a markdown plan."""
+    knowledge_dir = get_knowledge_dir(project_path)
+    generator = PlanGenerator(provider=provider)
+    context = _get_context(knowledge_dir)
+    plan_content = generator.generate_markdown_plan(system_prompt=system_prompt, context=context)
+    
+    output_path = knowledge_dir.parent / filename
+    output_path.write_text(plan_content, encoding="utf-8")
+    
+    return f"{plan_name} generated successfully at {output_path}"
+
 @mcp.tool()
 def generate_implementation_plan(project_path: str = None, provider: str = "openrouter") -> str:
     """
     Acts as the Software Architect. Reads local SSOT artifacts and generates
     a massive, professional-grade implementation-plan.md.
     """
-    knowledge_dir = get_knowledge_dir(project_path)
-    generator = PlanGenerator(provider=provider)
-    context = _get_context(knowledge_dir)
-    plan_content = generator.generate_markdown_plan(system_prompt=ARCHITECT_PROMPT, context=context)
-    
-    # 1. Save the implementation plan to the parent directory
-    output_path = knowledge_dir.parent / "implementation-plan.md"
-    output_path.write_text(plan_content, encoding="utf-8")
-    
-    # 2. Automatically generate the AI Agent context packages in the ssot/agents directory
-    agents_dir = knowledge_dir / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    
-    frontend_agent = f"# Frontend Engineer Agent\n\n## Role\nYou are the Frontend UI Engineer. Your job is to implement the user interface based on `implementation-plan.md`, `task-plan.md`, and the SSOT.\n\n## Context\n{context}"
-    backend_agent = f"# Backend Engineer Agent\n\n## Role\nYou are the Backend API Engineer. Your job is to implement the server logic, database models, and APIs based on `implementation-plan.md`, `task-plan.md`, and the SSOT.\n\n## Context\n{context}"
-    qa_agent = f"# QA Testing Agent\n\n## Role\nYou are the Test Engineer. Your job is to ensure code quality by executing and verifying `test-plan.md` against the SSOT.\n\n## Context\n{context}"
-    
-    (agents_dir / "frontend_agent.md").write_text(frontend_agent, encoding="utf-8")
-    (agents_dir / "backend_agent.md").write_text(backend_agent, encoding="utf-8")
-    (agents_dir / "qa_agent.md").write_text(qa_agent, encoding="utf-8")
-    
-    return f"Implementation Plan and Agent contexts generated successfully at {output_path}"
+    return _generate_and_save_plan(
+        project_path, provider, ARCHITECT_PROMPT, "implementation-plan.md", "Implementation Plan"
+    )
 
 @mcp.tool()
 def generate_task_plan(project_path: str = None, provider: str = "openrouter") -> str:
     """Generates an exhaustive Task Plan and saves it to the local workspace."""
-    knowledge_dir = get_knowledge_dir(project_path)
-    generator = PlanGenerator(provider=provider)
-    context = _get_context(knowledge_dir)
-    plan_content = generator.generate_markdown_plan(system_prompt=DEVELOPER_PROMPT, context=context)
-    output_path = knowledge_dir.parent / "task-plan.md"
-    output_path.write_text(plan_content, encoding="utf-8")
-    return f"Task Plan generated successfully at {output_path}"
+    return _generate_and_save_plan(
+        project_path, provider, DEVELOPER_PROMPT, "task-plan.md", "Task Plan"
+    )
 
 @mcp.tool()
 def generate_test_plan(project_path: str = None, provider: str = "openrouter") -> str:
     """Generates an exhaustive Test Plan and saves it to the local workspace."""
-    knowledge_dir = get_knowledge_dir(project_path)
-    generator = PlanGenerator(provider=provider)
-    context = _get_context(knowledge_dir)
-    plan_content = generator.generate_markdown_plan(system_prompt=TESTER_PROMPT, context=context)
-    output_path = knowledge_dir.parent / "test-plan.md"
-    output_path.write_text(plan_content, encoding="utf-8")
-    return f"Test Plan generated successfully at {output_path}"
+    return _generate_and_save_plan(
+        project_path, provider, TESTER_PROMPT, "test-plan.md", "Test Plan"
+    )
 
 @mcp.tool()
 def synchronize_ssot(update_summary: str, project_path: str = None) -> str:

@@ -8,8 +8,14 @@ logger = logging.getLogger("eip_mcp_server.generator")
 
 class PlanGenerator:
     def __init__(self, provider: str = "gemini"):
-        self.provider = provider
-        
+        self.raw_provider = provider
+        if provider.startswith("openrouter:"):
+            self.provider = "openrouter"
+        elif provider.startswith("gemini:"):
+            self.provider = "gemini"
+        else:
+            self.provider = provider
+            
         if self.provider == "gemini":
             self.api_key = os.environ.get("GEMINI_API_KEY")
             if not self.api_key:
@@ -26,18 +32,24 @@ class PlanGenerator:
                 api_key=self.api_key
             )
         else:
-            raise ValueError(f"Unknown provider: {provider}")
+            raise ValueError(f"Unknown provider: {self.provider}")
 
     def generate_markdown_plan(self, system_prompt: str, context: str, model_name: str = None) -> str:
         """
-        Generates a comprehensive Markdown plan using the selected API provider.
+        Generates a comprehensive markdown plan.
+        Extracts specific model from provider string if passed like openrouter:anthropic/...
         """
         try:
+            if ":" in self.raw_provider and not model_name:
+                model_name = self.raw_provider.split(":", 1)[1]
+                
+            if not model_name:
+                raise ValueError("Model must be explicitly selected by the user. No default models are allowed.")
+
             if self.provider == "gemini":
-                model = model_name or "gemini-3.1-pro-preview"
-                logger.info(f"Generating plan using Google GenAI: {model}...")
+                logger.info(f"Generating plan using Google AI: {model_name}...")
                 response = self.gemini_client.models.generate_content(
-                    model=model,
+                    model=model_name,
                     contents=context,
                     config=types.GenerateContentConfig(
                         system_instruction=system_prompt,
@@ -48,10 +60,9 @@ class PlanGenerator:
                 return response.text
                 
             elif self.provider == "openrouter":
-                model = model_name or "meta-llama/llama-3.1-70b-instruct"
-                logger.info(f"Generating plan using Meta AI via OpenRouter: {model}...")
+                logger.info(f"Generating plan using OpenRouter: {model_name}...")
                 response = self.openrouter_client.chat.completions.create(
-                    model=model,
+                    model=model_name,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": context}

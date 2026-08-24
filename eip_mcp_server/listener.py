@@ -28,76 +28,93 @@ class TriggerPayload(BaseModel):
     project_path: str = None
     provider: str = "gemini"
 
-def process_plan(payload: TriggerPayload):
-    knowledge_dir = get_knowledge_dir(payload.project_path)
-    logger.info(f"Received trigger to generate {payload.plan_type} in {knowledge_dir}")
-    
-    # Scaffold SSOT directories
-    dirs = ["requirements", "architecture", "system", "testing", "agents"]
-    for d in dirs:
-        dir_path = knowledge_dir / d
-        dir_path.mkdir(parents=True, exist_ok=True)
-        (dir_path / ".gitkeep").touch(exist_ok=True)
-        
-    ssot_yaml_path = knowledge_dir / "ssot.yaml"
-    if not ssot_yaml_path.exists():
-        ssot_yaml_content = f"""project_id: {payload.project_id}
-version: 1.0.0
-last_synced: ""
-description: "Local Engineering SSOT synchronized from EIP Web App"
-directories:
-  requirements: "SRDs and business requirements"
-  architecture: "ADRs, C4, and UML diagrams"
-  system: "Knowledge Graph and technical specifications"
-  testing: "Test specifications and coverage"
-  agents: "AI Agent context packages"
-"""
-        ssot_yaml_path.write_text(ssot_yaml_content, encoding='utf-8')
-    
-    # Map artifacts to appropriate directories
-    for artifact in payload.artifacts:
-        name = artifact.get("name", "artifact")
-        if not name.endswith(".md"):
-            name += ".md"
-            
-        atype = artifact.get("type", "")
-        if atype == "SRD":
-            target_path = knowledge_dir / "requirements" / name
-        elif atype == "ADR" or atype == "UML" or atype == "C4":
-            target_path = knowledge_dir / "architecture" / name
-        elif atype == "TEST_SPEC" or atype == "Test Spec":
-            target_path = knowledge_dir / "testing" / name
-        else:
-            target_path = knowledge_dir / "system" / name
-            
-        content = artifact.get("content")
-        if content is None:
-            content = ""
-            
-        target_path.write_text(content, encoding='utf-8')
-        
-    if payload.graph_context:
-        (knowledge_dir / "system" / "WEB_GRAPH_CONTEXT.md").write_text(payload.graph_context, encoding='utf-8')
-    
-    if payload.plan_type == "Implementation Plan":
-        generate_implementation_plan(project_path=payload.project_path, provider=payload.provider)
-    elif payload.plan_type == "Task Plan":
-        generate_task_plan(project_path=payload.project_path, provider=payload.provider)
-    elif payload.plan_type == "Test Plan":
-        generate_test_plan(project_path=payload.project_path, provider=payload.provider)
-    else:
-        logger.warning(f"Unknown plan type: {payload.plan_type}")
-        # Default to implementation plan
-        generate_implementation_plan(project_path=payload.project_path, provider=payload.provider)
-        
-    if payload.plan_id:
-        try:
-            import httpx
-            httpx.post(f"http://localhost:8000/api/v1/plans/{payload.plan_id}/complete", timeout=5.0)
-            logger.info(f"Successfully notified backend of plan completion for {payload.plan_id}")
-        except Exception as e:
-            logger.error(f"Failed to notify backend of plan completion: {e}")
+import threading
+plan_lock = threading.Lock()
 
+def process_plan(payload: TriggerPayload):
+    with plan_lock:
+        knowledge_dir = get_knowledge_dir(payload.project_path)
+        logger.info(f"Received trigger to generate {payload.plan_type} in {knowledge_dir}")
+        
+        # Scaffold SSOT directories
+        dirs = ["requirements", "architecture", "system", "testing", "agents"]
+        for d in dirs:
+            dir_path = knowledge_dir / d
+            dir_path.mkdir(parents=True, exist_ok=True)
+            (dir_path / ".gitkeep").touch(exist_ok=True)
+            
+        ssot_yaml_path = knowledge_dir / "ssot.yaml"
+        if not ssot_yaml_path.exists():
+            ssot_yaml_content = f"""project_id: {payload.project_id}
+    version: 1.0.0
+    last_synced: ""
+    description: "Local Engineering SSOT synchronized from EIP Web App"
+    directories:
+      requirements: "SRDs and business requirements"
+      architecture: "ADRs, C4, and UML diagrams"
+      system: "Knowledge Graph and technical specifications"
+      testing: "Test specifications and coverage"
+      agents: "AI Agent context packages"
+    """
+            ssot_yaml_path.write_text(ssot_yaml_content, encoding='utf-8')
+        
+        # Map artifacts to appropriate directories
+        for artifact in payload.artifacts:
+            name = artifact.get("name", "artifact")
+            if not name.endswith(".md"):
+                name += ".md"
+                
+            atype = artifact.get("type", "")
+            if atype == "SRD":
+                target_path = knowledge_dir / "requirements" / name
+            elif atype == "ADR" or atype == "UML" or atype == "C4":
+                target_path = knowledge_dir / "architecture" / name
+            elif atype == "TEST_SPEC" or atype == "Test Spec":
+                target_path = knowledge_dir / "testing" / name
+            else:
+                target_path = knowledge_dir / "system" / name
+                
+            content = artifact.get("content")
+            if content is None:
+                content = ""
+                
+            target_path.write_text(content, encoding='utf-8')
+            
+        if payload.graph_context:
+            (knowledge_dir / "system" / "WEB_GRAPH_CONTEXT.md").write_text(payload.graph_context, encoding='utf-8')
+        
+        if payload.plan_type == "Implementation Plan":
+            generate_implementation_plan(project_path=payload.project_path, provider=payload.provider)
+        elif payload.plan_type == "Task Plan":
+            generate_task_plan(project_path=payload.project_path, provider=payload.provider)
+        elif payload.plan_type == "Test Plan":
+            generate_test_plan(project_path=payload.project_path, provider=payload.provider)
+        elif payload.plan_type == "Local SSOT Sync":
+            from eip_mcp_server.server import _get_context
+            context = _get_context(knowledge_dir)
+            agents_dir = knowledge_dir / "agents"
+            
+            frontend_agent = f"# Frontend Engineer Agent\n\n## Role\nYou are the Frontend UI Engineer. Your job is to implement the user interface based on `implementation-plan.md`, `task-plan.md`, and the SSOT.\n\n## Context\n{context}"
+            backend_agent = f"# Backend Engineer Agent\n\n## Role\nYou are the Backend API Engineer. Your job is to implement the server logic, database models, and APIs based on `implementation-plan.md`, `task-plan.md`, and the SSOT.\n\n## Context\n{context}"
+            qa_agent = f"# QA Testing Agent\n\n## Role\nYou are the Test Engineer. Your job is to ensure code quality by executing and verifying `test-plan.md` against the SSOT.\n\n## Context\n{context}"
+            
+            (agents_dir / "frontend_agent.md").write_text(frontend_agent, encoding="utf-8")
+            (agents_dir / "backend_agent.md").write_text(backend_agent, encoding="utf-8")
+            (agents_dir / "qa_agent.md").write_text(qa_agent, encoding="utf-8")
+            logger.info("Local SSOT successfully scaffolded. Agents generated. Skipping plan generation.")
+        else:
+            logger.warning(f"Unknown plan type: {payload.plan_type}")
+            # Default to implementation plan
+            generate_implementation_plan(project_path=payload.project_path, provider=payload.provider)
+            
+        if payload.plan_id:
+            try:
+                import httpx
+                httpx.post(f"http://localhost:8000/api/v1/plans/{payload.plan_id}/complete", timeout=5.0)
+                logger.info(f"Successfully notified backend of plan completion for {payload.plan_id}")
+            except Exception as e:
+                logger.error(f"Failed to notify backend of plan completion: {e}")
+    
 @app.post("/trigger")
 async def trigger_webhook(payload: TriggerPayload, background_tasks: BackgroundTasks):
     """Webhook listener that kicks off the background MCP generation."""
