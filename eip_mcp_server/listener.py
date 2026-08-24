@@ -26,7 +26,7 @@ class TriggerPayload(BaseModel):
     artifacts: List[Dict] = []
     graph_context: str = ""
     project_path: str = None
-    provider: str = "gemini"
+    provider: str = "openrouter"
 
 import threading
 plan_lock = threading.Lock()

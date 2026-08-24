@@ -1,28 +1,18 @@
 import os
 import logging
-from google import genai
-from google.genai import types
 from openai import OpenAI
 
 logger = logging.getLogger("eip_mcp_server.generator")
 
 class PlanGenerator:
-    def __init__(self, provider: str = "gemini"):
+    def __init__(self, provider: str = "openrouter"):
         self.raw_provider = provider
         if provider.startswith("openrouter:"):
             self.provider = "openrouter"
-        elif provider.startswith("gemini:"):
-            self.provider = "gemini"
         else:
             self.provider = provider
             
-        if self.provider == "gemini":
-            self.api_key = os.environ.get("GEMINI_API_KEY")
-            if not self.api_key:
-                logger.warning("GEMINI_API_KEY not found in environment, plan generation may fail.")
-            else:
-                self.gemini_client = genai.Client(api_key=self.api_key)
-        elif self.provider == "openrouter":
+        if self.provider == "openrouter":
             self.api_key = os.environ.get("OPENROUTER_API_KEY")
             if not self.api_key:
                 logger.warning("OPENROUTER_API_KEY not found in environment, plan generation may fail.")
@@ -46,20 +36,7 @@ class PlanGenerator:
             if not model_name:
                 raise ValueError("Model must be explicitly selected by the user. No default models are allowed.")
 
-            if self.provider == "gemini":
-                logger.info(f"Generating plan using Google AI: {model_name}...")
-                response = self.gemini_client.models.generate_content(
-                    model=model_name,
-                    contents=context,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        temperature=0.2,
-                        max_output_tokens=8192,
-                    ),
-                )
-                return response.text
-                
-            elif self.provider == "openrouter":
+            if self.provider == "openrouter":
                 logger.info(f"Generating plan using OpenRouter: {model_name}...")
                 response = self.openrouter_client.chat.completions.create(
                     model=model_name,
