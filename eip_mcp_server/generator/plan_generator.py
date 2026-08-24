@@ -16,11 +16,12 @@ class PlanGenerator:
             self.api_key = os.environ.get("OPENROUTER_API_KEY")
             if not self.api_key:
                 logger.warning("OPENROUTER_API_KEY not found in environment, plan generation may fail.")
-            
-            self.openrouter_client = OpenAI(
-                base_url="https://openrouter.ai/api/v1",
-                api_key=self.api_key
-            )
+                self.openrouter_client = None
+            else:
+                self.openrouter_client = OpenAI(
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key=self.api_key
+                )
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
 
