@@ -37,24 +37,22 @@ When connected to your IDE, the AI agent gains access to the following tools:
 
 ## 📦 Installation & Usage
 
-For the best development experience and to keep your API keys secure, we recommend cloning the repository locally and configuring your IDE to run it directly.
+You can run the EIP MCP Server either by cloning it locally or by running it remotely directly from GitHub using `uv`.
 
-### 1. Clone the Repository
+### Option A: Local Installation (Recommended)
 
-Clone this repository into a convenient directory on your local machine:
+For the best development experience and to keep your API keys secure, we recommend cloning the repository locally.
+
+1. **Clone the Repository:**
 
 ```bash
 git clone https://github.com/eecheonwu/eip-mcp-server.git
 cd eip-mcp-server
 ```
 
-### 2. IDE Configuration (Claude Desktop, Antigravity, etc.)
+1. **IDE Configuration:**
 
-To give your AI coding assistant full access to the EIP ecosystem, add the following to your IDE's MCP configuration file (e.g., `mcp_config.json` or `claude_desktop_config.json`).
-
-While you can use a local `.env` file (see `.env.example`), the most secure strategy is to let your IDE securely inject the API keys as environment variables when it starts the server. Update the `cwd` or `--directory` path to match where you cloned the repository.
-
-You can configure your AI model (via OpenRouter), aligning your local MCP server with the EIP Web App's AI engine.
+Add the following to your IDE's MCP configuration file (e.g., `mcp_config.json` or `claude_desktop_config.json`). Update the `--directory` path to match where you cloned the repository.
 
 ```json
 {
@@ -76,13 +74,77 @@ You can configure your AI model (via OpenRouter), aligning your local MCP server
 }
 ```
 
-> **💡 Note on Webhooks:** When your IDE starts the MCP Server, it will automatically spawn the background HTTP webhook listener on port `8123`.
+### Option B: Remote Execution (No Cloning Required)
 
-#### Supported IDEs
+You can run the MCP server directly from the remote GitHub repository using `uv`'s ability to run code from Git URLs.
+
+**1. Full Features (Includes Webhook Listener)**
+
+To ensure the background webhook listener on port `8123` starts properly, you must run the server as a module. This allows inbound remote triggers from the EIP Web App.
+
+```json
+{
+  "mcpServers": {
+    "eip-mcp-server": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "git+https://github.com/eecheonwu/eip-mcp-server.git",
+        "-m",
+        "eip_mcp_server.server"
+      ],
+      "env": {
+        "OPENROUTER_API_KEY": "your-openrouter-api-key-here"
+      }
+    }
+  }
+}
+```
+
+**2. MCP Tools Only (No Webhook Listener)**
+
+If you only want the MCP tools (outbound capabilities) and *do not* need the background webhook listener, you can use the built-in script entry point with `uvx`:
+
+```json
+{
+  "mcpServers": {
+    "eip-mcp-server": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/eecheonwu/eip-mcp-server.git",
+        "eip-mcp-server"
+      ],
+      "env": {
+        "OPENROUTER_API_KEY": "your-openrouter-api-key-here"
+      }
+    }
+  }
+}
+```
+
+> **⚠️ Warning on disabling the webhook:** Without the webhook listener, the EIP Web App cannot remotely trigger local code generation or automatically scaffold your local workspace. The integration becomes one-directional (outbound only).
+
+
+### Supported IDEs
 
 - **Claude Desktop**: Add to `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS).
 - **Antigravity CLI / IDE**: Add to `~/.gemini/config/mcp_config.json`.
 - **Cursor**: Configure via Settings > Features > MCP.
+
+---
+
+## 🌐 Connecting to a Cloud-Hosted EIP Web App
+
+If your EIP Web App is hosted in the cloud (e.g., DigitalOcean, AWS), you must configure networking in both directions:
+
+1. **Inbound (Cloud ➡️ Local Laptop):**
+   The cloud-hosted EIP Web App cannot natively send webhook requests to your laptop's local port `8123` due to firewalls/NAT.
+   To fix this, you must run a secure tunnel like **ngrok** (`ngrok http 8123`) or **Cloudflare Tunnels** on your local machine. You then configure the EIP Web App to send webhook triggers to the public URL provided by the tunnel.
+
+2. **Outbound (Local Laptop ➡️ Cloud):**
+   By default, the MCP server points to `http://localhost:8000` for the Web App backend. You will need to edit `server.py` and `listener.py` to replace the `localhost` URL with your cloud domain name (or refactor it to read from an environment variable) so your local tools can successfully push data back to the cloud.
 
 ---
 
