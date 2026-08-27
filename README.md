@@ -67,7 +67,9 @@ Add the following to your IDE's MCP configuration file (e.g., `mcp_config.json` 
         "eip_mcp_server/server.py"
       ],
       "env": {
-        "OPENROUTER_API_KEY": "your-openrouter-api-key-here"
+        "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
+        "EIP_API_URL": "http://localhost:8000",
+        "EIP_API_KEY": "your-eip-api-key-here"
       }
     }
   }
@@ -95,7 +97,9 @@ To ensure the background webhook listener on port `8123` starts properly, you mu
         "eip_mcp_server.server"
       ],
       "env": {
-        "OPENROUTER_API_KEY": "your-openrouter-api-key-here"
+        "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
+        "EIP_API_URL": "http://localhost:8000",
+        "EIP_API_KEY": "your-eip-api-key-here"
       }
     }
   }
@@ -117,7 +121,9 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
         "eip-mcp-server"
       ],
       "env": {
-        "OPENROUTER_API_KEY": "your-openrouter-api-key-here"
+        "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
+        "EIP_API_URL": "http://localhost:8000",
+        "EIP_API_KEY": "your-eip-api-key-here"
       }
     }
   }
@@ -144,7 +150,9 @@ If your EIP Web App is hosted in the cloud (e.g., DigitalOcean, AWS), you must c
    To fix this, you must run a secure tunnel like **ngrok** (`ngrok http 8123`) or **Cloudflare Tunnels** on your local machine. You then configure the EIP Web App to send webhook triggers to the public URL provided by the tunnel.
 
 2. **Outbound (Local Laptop ➡️ Cloud):**
-   By default, the MCP server points to `http://localhost:8000` for the Web App backend. You will need to edit `server.py` and `listener.py` to replace the `localhost` URL with your cloud domain name (or refactor it to read from an environment variable) so your local tools can successfully push data back to the cloud.
+   By default, the MCP server points to `http://localhost:8000` for the Web App backend. You can override this and provide authentication by setting the following environment variables:
+   - `EIP_API_URL` (e.g. `https://api.yourdomain.com`)
+   - `EIP_API_KEY` (Your secure API key for the cloud backend)
 
 ---
 

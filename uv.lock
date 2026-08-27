@@ -620,7 +620,6 @@ dependencies = [
     { name = "fastmcp" },
     { name = "openai" },
     { name = "pydantic" },
-    { name = "python-dotenv" },
     { name = "requests" },
     { name = "uvicorn" },
 ]
@@ -631,7 +630,6 @@ requires-dist = [
     { name = "fastmcp" },
     { name = "openai", specifier = ">=3.3.0" },
     { name = "pydantic" },
-    { name = "python-dotenv" },
     { name = "requests" },
     { name = "uvicorn" },
 ]

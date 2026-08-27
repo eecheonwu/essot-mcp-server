@@ -3,14 +3,12 @@ import sys
 import logging
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
-from dotenv import load_dotenv
 
 from eip_mcp_server.generator.plan_generator import PlanGenerator
 from eip_mcp_server.prompts.architect import ARCHITECT_PROMPT
 from eip_mcp_server.prompts.developer import DEVELOPER_PROMPT
 from eip_mcp_server.prompts.tester import TESTER_PROMPT
 
-load_dotenv()
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("eip_mcp_server")
 
@@ -127,8 +125,12 @@ def synchronize_ssot(update_summary: str, project_path: str = None) -> str:
         dir_path = knowledge_dir / d
         if dir_path.exists():
             for file_path in dir_path.glob("*.md"):
+                # Skip the web graph artifact as it shouldn't be duplicated in the web SSOT
+                if "web_graph" in file_path.name.lower() or "web graph" in file_path.name.lower():
+                    continue
+                
                 # Infer artifact type based on folder mapping
-                atype = "UNKNOWN"
+                atype = None
                 if d == "requirements": atype = "SRD"
                 elif d == "architecture":
                     if "adr" in file_path.name.lower(): atype = "ADR"
@@ -146,12 +148,19 @@ def synchronize_ssot(update_summary: str, project_path: str = None) -> str:
         return "No markdown files found to sync."
         
     try:
+        eip_api_url = os.environ.get("EIP_API_URL", "http://localhost:8000").rstrip("/")
+        headers = {}
+        eip_api_key = os.environ.get("EIP_API_KEY")
+        if eip_api_key:
+            headers["Authorization"] = f"Bearer {eip_api_key}"
+            
         response = requests.post(
-            f"http://localhost:8000/api/v1/projects/{project_id}/ssot/sync",
+            f"{eip_api_url}/api/v1/projects/{project_id}/ssot/sync",
             json={
                 "update_summary": update_summary,
                 "items": items
             },
+            headers=headers,
             timeout=10.0
         )
         response.raise_for_status()

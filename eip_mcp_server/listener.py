@@ -1,3 +1,4 @@
+import os
 import logging
 import sys
 from fastapi import FastAPI, BackgroundTasks
@@ -110,7 +111,13 @@ def process_plan(payload: TriggerPayload):
         if payload.plan_id:
             try:
                 import httpx
-                httpx.post(f"http://localhost:8000/api/v1/plans/{payload.plan_id}/complete", timeout=5.0)
+                eip_api_url = os.environ.get("EIP_API_URL", "http://localhost:8000").rstrip("/")
+                headers = {}
+                eip_api_key = os.environ.get("EIP_API_KEY")
+                if eip_api_key:
+                    headers["Authorization"] = f"Bearer {eip_api_key}"
+                
+                httpx.post(f"{eip_api_url}/api/v1/plans/{payload.plan_id}/complete", headers=headers, timeout=5.0)
                 logger.info(f"Successfully notified backend of plan completion for {payload.plan_id}")
             except Exception as e:
                 logger.error(f"Failed to notify backend of plan completion: {e}")
