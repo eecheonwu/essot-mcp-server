@@ -1,25 +1,25 @@
-# EIP MCP Server
+# ESSOT MCP Server
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP Transport](https://img.shields.io/badge/mcp-stdio%20%7C%20http-green.svg)](https://modelcontextprotocol.io/)
 [![Framework](https://img.shields.io/badge/framework-FastMCP-purple.svg)](https://github.com/jlowin/fastmcp)
 
-The **EIP MCP Server** is the bridge between your local development environment and the **Engineering Intelligence Platform (EIP)**. It exposes local workspace orchestration capabilities to your AI-powered IDEs via the Model Context Protocol (MCP).
+The **ESSOT MCP Server** is the bridge between your local development environment and the **Engineering Intelligence Platform (ESSOT)**. It exposes local workspace orchestration capabilities to your AI-powered IDEs via the Model Context Protocol (MCP).
 
 ---
 
-## 🚀 About the Engineering Intelligence Platform (EIP)
+## 🚀 About the Engineering Intelligence Platform (ESSOT)
 
-The **Engineering Intelligence Platform (EIP)** is a modern governance and planning workspace designed for AI-driven software engineering. EIP automatically maintains a Single Source of Truth (SSOT), visualizes architectural knowledge graphs, and governs architectural drift.
+The **Engineering Intelligence Platform (ESSOT)** is a modern governance and planning workspace designed for AI-driven software engineering. ESSOT automatically maintains a Single Source of Truth (SSOT), visualizes architectural knowledge graphs, and governs architectural drift.
 
-The **EIP MCP Server** empowers AI Coding Agents (such as Antigravity, Claude Desktop, Cursor, or Windsurf) to natively interact with your EIP project.
+The **ESSOT MCP Server** empowers AI Coding Agents (such as Antigravity, Claude Desktop, Cursor, or Windsurf) to natively interact with your ESSOT project.
 
-### How it Connects to EIP
+### How it Connects to ESSOT
 
 This MCP server operates in a **dual-mode architecture**:
 
-1. **Stdio MCP Interface**: Seamlessly exposes AI tools to your local IDE Agent, allowing it to pull architecture guidelines, parse SSOT requirements, and automatically synchronize your code drift with the remote EIP Knowledge Graph.
-2. **Background Webhook Listener**: Upon initialization, the server silently spawns an HTTP listener on port `8123`. This allows the cloud-based **EIP Web App** to trigger deep architectural tasks (like generating an Implementation Plan) which are then executed securely on your local file system.
+1. **Stdio MCP Interface**: Seamlessly exposes AI tools to your local IDE Agent, allowing it to pull architecture guidelines, parse SSOT requirements, and automatically synchronize your code drift with the remote ESSOT Knowledge Graph.
+2. **Background Webhook Listener**: Upon initialization, the server silently spawns an HTTP listener on port `8123`. This allows the cloud-based **ESSOT Web App** to trigger deep architectural tasks (like generating an Implementation Plan) which are then executed securely on your local file system.
 
 ---
 
@@ -27,17 +27,17 @@ This MCP server operates in a **dual-mode architecture**:
 
 When connected to your IDE, the AI agent gains access to the following tools:
 
-- `initialize_local_ssot`: Connects to the EIP Web App to scaffold your local `ssot/` directory using the project's Software Requirements Document (SRD).
+- `initialize_local_ssot`: Connects to the ESSOT Web App to scaffold your local `ssot/` directory using the project's Software Requirements Document (SRD).
 - `generate_implementation_plan`: Acts as a Staff Architect. Analyzes local SSOT context and outputs an exhaustive, step-by-step implementation plan (with embedded security architecture).
 - `generate_task_plan`: Decompiles the implementation plan into highly specific executable tasks for local agents (including integrated security guardrails).
 - `generate_test_plan`: Creates comprehensive testing strategies (STQE, RTM) mapped to feature requirements.
-- `synchronize_ssot`: Pushes local documentation and architectural updates back to the EIP Web App's Knowledge Graph to resolve drift.
+- `synchronize_ssot`: Pushes local documentation and architectural updates back to the ESSOT Web App's Knowledge Graph to resolve drift.
 
 ---
 
 ## 📦 Installation & Usage
 
-You can run the EIP MCP Server either by cloning it locally or by running it remotely directly from GitHub using `uv`.
+You can run the ESSOT MCP Server either by cloning it locally or by running it remotely directly from GitHub using `uv`.
 
 ### Option A: Local Installation (Recommended)
 
@@ -46,8 +46,8 @@ For the best development experience and to keep your API keys secure, we recomme
 1. **Clone the Repository:**
 
 ```bash
-git clone https://github.com/eecheonwu/eip-mcp-server.git
-cd eip-mcp-server
+git clone https://github.com/eecheonwu/essot-mcp-server.git
+cd essot-mcp-server
 ```
 
 1. **IDE Configuration:**
@@ -57,19 +57,19 @@ Add the following to your IDE's MCP configuration file (e.g., `mcp_config.json` 
 ```json
 {
   "mcpServers": {
-    "eip-mcp-server": {
+    "essot-mcp-server": {
       "command": "uv",
       "args": [
         "run",
         "--directory",
-        "/path/to/your/local/eip-mcp-server",
+        "/path/to/your/local/essot-mcp-server",
         "python",
-        "eip_mcp_server/server.py"
+        "essot_mcp_server/server.py"
       ],
       "env": {
         "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "EIP_API_URL": "http://localhost:8000",
-        "EIP_API_KEY": "your-eip-api-key-here"
+        "ESSOT_API_URL": "http://localhost:8000",
+        "ESSOT_API_KEY": "your-essot-api-key-here"
       }
     }
   }
@@ -82,24 +82,24 @@ You can run the MCP server directly from the remote GitHub repository using `uv`
 
 **1. Full Features (Includes Webhook Listener)**
 
-To ensure the background webhook listener on port `8123` starts properly, you must run the server as a module. This allows inbound remote triggers from the EIP Web App.
+To ensure the background webhook listener on port `8123` starts properly, you must run the server as a module. This allows inbound remote triggers from the ESSOT Web App.
 
 ```json
 {
   "mcpServers": {
-    "eip-mcp-server": {
+    "essot-mcp-server": {
       "command": "uv",
       "args": [
         "run",
         "--with",
-        "git+https://github.com/eecheonwu/eip-mcp-server.git",
+        "git+https://github.com/eecheonwu/essot-mcp-server.git",
         "-m",
-        "eip_mcp_server.server"
+        "essot_mcp_server.server"
       ],
       "env": {
         "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "EIP_API_URL": "http://localhost:8000",
-        "EIP_API_KEY": "your-eip-api-key-here"
+        "ESSOT_API_URL": "http://localhost:8000",
+        "ESSOT_API_KEY": "your-essot-api-key-here"
       }
     }
   }
@@ -113,24 +113,24 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
 ```json
 {
   "mcpServers": {
-    "eip-mcp-server": {
+    "essot-mcp-server": {
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/eecheonwu/eip-mcp-server.git",
-        "eip-mcp-server"
+        "git+https://github.com/eecheonwu/essot-mcp-server.git",
+        "essot-mcp-server"
       ],
       "env": {
         "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "EIP_API_URL": "http://localhost:8000",
-        "EIP_API_KEY": "your-eip-api-key-here"
+        "ESSOT_API_URL": "http://localhost:8000",
+        "ESSOT_API_KEY": "your-essot-api-key-here"
       }
     }
   }
 }
 ```
 
-> **⚠️ Warning on disabling the webhook:** Without the webhook listener, the EIP Web App cannot remotely trigger local code generation or automatically scaffold your local workspace. The integration becomes one-directional (outbound only).
+> **⚠️ Warning on disabling the webhook:** Without the webhook listener, the ESSOT Web App cannot remotely trigger local code generation or automatically scaffold your local workspace. The integration becomes one-directional (outbound only).
 
 
 ### Supported IDEs
@@ -141,18 +141,18 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
 
 ---
 
-## 🌐 Connecting to a Cloud-Hosted EIP Web App
+## 🌐 Connecting to a Cloud-Hosted ESSOT Web App
 
-If your EIP Web App is hosted in the cloud (e.g., DigitalOcean, AWS), you must configure networking in both directions:
+If your ESSOT Web App is hosted in the cloud (e.g., DigitalOcean, AWS), you must configure networking in both directions:
 
 1. **Inbound (Cloud ➡️ Local Laptop):**
-   The cloud-hosted EIP Web App cannot natively send webhook requests to your laptop's local port `8123` due to firewalls/NAT.
-   To fix this, you must run a secure tunnel like **ngrok** (`ngrok http 8123`) or **Cloudflare Tunnels** on your local machine. You then configure the EIP Web App to send webhook triggers to the public URL provided by the tunnel.
+   The cloud-hosted ESSOT Web App cannot natively send webhook requests to your laptop's local port `8123` due to firewalls/NAT.
+   To fix this, you must run a secure tunnel like **ngrok** (`ngrok http 8123`) or **Cloudflare Tunnels** on your local machine. You then configure the ESSOT Web App to send webhook triggers to the public URL provided by the tunnel.
 
 2. **Outbound (Local Laptop ➡️ Cloud):**
    By default, the MCP server points to `http://localhost:8000` for the Web App backend. You can override this and provide authentication by setting the following environment variables:
-   - `EIP_API_URL` (e.g. `https://api.yourdomain.com`)
-   - `EIP_API_KEY` (Your secure API key for the cloud backend)
+   - `ESSOT_API_URL` (e.g. `https://api.yourdomain.com`)
+   - `ESSOT_API_KEY` (Your secure API key for the cloud backend)
 
 ---
 
@@ -160,7 +160,7 @@ If your EIP Web App is hosted in the cloud (e.g., DigitalOcean, AWS), you must c
 
 - **Python**: `3.10` or higher
 - **Package Manager**: [uv](https://github.com/astral-sh/uv) by Astral
-- **Ports**: Port `8123` must be available for the EIP Webhook Listener.
+- **Ports**: Port `8123` must be available for the ESSOT Webhook Listener.
 
 ## 🤝 Contributing
 

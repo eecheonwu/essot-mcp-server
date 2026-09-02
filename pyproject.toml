@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "eip-mcp-server"
+name = "essot-mcp-server"
 version = "0.1.0"
-description = "EIP MCP Server for integration with the EIP Web App"
+description = "ESSOT MCP Server for integration with the ESSOT Web App"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -18,4 +18,4 @@ dependencies = [
 ]
 
 [project.scripts]
-eip-mcp-server = "eip_mcp_server.server:mcp.run"
+essot-mcp-server = "essot_mcp_server.server:mcp.run"

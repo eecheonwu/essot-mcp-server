@@ -6,7 +6,7 @@ import uvicorn
 from pydantic import BaseModel
 
 # Import our MCP server functions directly
-from eip_mcp_server.server import (
+from essot_mcp_server.server import (
     generate_implementation_plan,
     generate_task_plan,
     generate_test_plan,
@@ -49,7 +49,7 @@ def process_plan(payload: TriggerPayload):
             ssot_yaml_content = f"""project_id: {payload.project_id}
     version: 1.0.0
     last_synced: ""
-    description: "Local Engineering SSOT synchronized from EIP Web App"
+    description: "Local Engineering SSOT synchronized from ESSOT Web App"
     directories:
       requirements: "SRDs and business requirements"
       architecture: "ADRs, C4, and UML diagrams"
@@ -91,7 +91,7 @@ def process_plan(payload: TriggerPayload):
         elif payload.plan_type == "Test Plan":
             generate_test_plan(project_path=payload.project_path, provider=payload.provider)
         elif payload.plan_type == "Local SSOT Sync":
-            from eip_mcp_server.server import _get_context
+            from essot_mcp_server.server import _get_context
             context = _get_context(knowledge_dir)
             agents_dir = knowledge_dir / "agents"
             
@@ -111,13 +111,13 @@ def process_plan(payload: TriggerPayload):
         if payload.plan_id:
             try:
                 import httpx
-                eip_api_url = os.environ.get("EIP_API_URL", "http://localhost:8000").rstrip("/")
+                essot_api_url = os.environ.get("ESSOT_API_URL", "http://localhost:8000").rstrip("/")
                 headers = {}
-                eip_api_key = os.environ.get("EIP_API_KEY")
-                if eip_api_key:
-                    headers["Authorization"] = f"Bearer {eip_api_key}"
+                essot_api_key = os.environ.get("ESSOT_API_KEY")
+                if essot_api_key:
+                    headers["Authorization"] = f"Bearer {essot_api_key}"
                 
-                httpx.post(f"{eip_api_url}/api/v1/plans/{payload.plan_id}/complete", headers=headers, timeout=5.0)
+                httpx.post(f"{essot_api_url}/api/v1/plans/{payload.plan_id}/complete", headers=headers, timeout=5.0)
                 logger.info(f"Successfully notified backend of plan completion for {payload.plan_id}")
             except Exception as e:
                 logger.error(f"Failed to notify backend of plan completion: {e}")
@@ -130,5 +130,5 @@ async def trigger_webhook(payload: TriggerPayload, background_tasks: BackgroundT
     return {"status": "accepted", "message": f"Delegated generation for {payload.plan_type}"}
 
 if __name__ == "__main__":
-    logger.info("Starting local EIP MCP Webhook Listener on port 8123...")
+    logger.info("Starting local ESSOT MCP Webhook Listener on port 8123...")
     uvicorn.run(app, host="0.0.0.0", port=8123)

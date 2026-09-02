@@ -2,7 +2,7 @@ import os
 import logging
 from openai import OpenAI
 
-logger = logging.getLogger("eip_mcp_server.generator")
+logger = logging.getLogger("essot_mcp_server.generator")
 
 class PlanGenerator:
     def __init__(self, provider: str = "openrouter"):

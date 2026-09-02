@@ -612,7 +612,7 @@ wheels = [
 ]
 
 [[package]]
-name = "eip-mcp-server"
+name = "essot-mcp-server"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

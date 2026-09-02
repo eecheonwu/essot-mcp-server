@@ -4,15 +4,15 @@ import logging
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
-from eip_mcp_server.generator.plan_generator import PlanGenerator
-from eip_mcp_server.prompts.architect import ARCHITECT_PROMPT
-from eip_mcp_server.prompts.developer import DEVELOPER_PROMPT
-from eip_mcp_server.prompts.tester import TESTER_PROMPT
+from essot_mcp_server.generator.plan_generator import PlanGenerator
+from essot_mcp_server.prompts.architect import ARCHITECT_PROMPT
+from essot_mcp_server.prompts.developer import DEVELOPER_PROMPT
+from essot_mcp_server.prompts.tester import TESTER_PROMPT
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
-logger = logging.getLogger("eip_mcp_server")
+logger = logging.getLogger("essot_mcp_server")
 
-mcp = FastMCP("eip-mcp-server")
+mcp = FastMCP("essot-mcp-server")
 
 def get_project_root(project_path: str = None) -> Path:
     """Resolves the project root path."""
@@ -41,7 +41,7 @@ def _get_context(knowledge_dir: Path) -> str:
 @mcp.tool()
 def initialize_local_ssot(project_id: str, project_path: str = None) -> str:
     """
-    Connects to the EIP Web App, pulls initial business requirements (SRD)
+    Connects to the ESSOT Web App, pulls initial business requirements (SRD)
     and scaffolds the local knowledge/ directory.
     """
     knowledge_dir = get_knowledge_dir(project_path)
@@ -94,7 +94,7 @@ def generate_test_plan(project_path: str = None, provider: str = "openrouter") -
 @mcp.tool()
 def synchronize_ssot(update_summary: str, project_path: str = None) -> str:
     """
-    Called by the IDE Coding Agent to synchronize local SSOT changes with the EIP Web App.
+    Called by the IDE Coding Agent to synchronize local SSOT changes with the ESSOT Web App.
     Reads the local ssot/ directory, determines what has changed, and pushes the updates 
     back to the cloud database and Knowledge Graph.
     
@@ -148,14 +148,14 @@ def synchronize_ssot(update_summary: str, project_path: str = None) -> str:
         return "No markdown files found to sync."
         
     try:
-        eip_api_url = os.environ.get("EIP_API_URL", "http://localhost:8000").rstrip("/")
+        essot_api_url = os.environ.get("ESSOT_API_URL", "http://localhost:8000").rstrip("/")
         headers = {}
-        eip_api_key = os.environ.get("EIP_API_KEY")
-        if eip_api_key:
-            headers["Authorization"] = f"Bearer {eip_api_key}"
+        essot_api_key = os.environ.get("ESSOT_API_KEY")
+        if essot_api_key:
+            headers["Authorization"] = f"Bearer {essot_api_key}"
             
         response = requests.post(
-            f"{eip_api_url}/api/v1/projects/{project_id}/ssot/sync",
+            f"{essot_api_url}/api/v1/projects/{project_id}/ssot/sync",
             json={
                 "update_summary": update_summary,
                 "items": items
@@ -172,13 +172,13 @@ def synchronize_ssot(update_summary: str, project_path: str = None) -> str:
         ssot_content = ssot_content.replace('last_synced: ""', f'last_synced: "{now}"')
         ssot_yaml_path.write_text(ssot_content, encoding="utf-8")
         
-        return f"Successfully synchronized local SSOT with EIP Web App. {result.get('artifacts_updated', 0)} artifacts updated. {update_summary}"
+        return f"Successfully synchronized local SSOT with ESSOT Web App. {result.get('artifacts_updated', 0)} artifacts updated. {update_summary}"
     except requests.exceptions.RequestException as e:
         logger.error(f"Sync failed: {e}")
         return f"Error during synchronization: {e}"
 
 if __name__ == "__main__":
-    logger.info("Starting EIP MCP Server...")
+    logger.info("Starting ESSOT MCP Server...")
     
     # === Start Webhook Listener in Background ===
     import threading
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         if s.connect_ex(('127.0.0.1', 8123)) != 0:
             def run_uvicorn():
-                from eip_mcp_server.listener import app
+                from essot_mcp_server.listener import app
                 # Hide access logs to prevent polluting IDE stdout
                 config = uvicorn.Config(app, host="0.0.0.0", port=8123, log_level="error")
                 server = uvicorn.Server(config)
