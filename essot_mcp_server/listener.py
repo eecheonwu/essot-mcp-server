@@ -111,7 +111,7 @@ def process_plan(payload: TriggerPayload):
         if payload.plan_id:
             try:
                 import httpx
-                essot_api_url = os.environ.get("ESSOT_API_URL", "http://localhost:8000").rstrip("/")
+                essot_api_url = os.environ.get("ESSOT_API_URL", "https://essot.space").rstrip("/")
                 headers = {}
                 essot_api_key = os.environ.get("ESSOT_API_KEY")
                 if essot_api_key:

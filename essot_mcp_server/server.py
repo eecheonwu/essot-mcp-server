@@ -148,7 +148,7 @@ def synchronize_ssot(update_summary: str, project_path: str = None) -> str:
         return "No markdown files found to sync."
         
     try:
-        essot_api_url = os.environ.get("ESSOT_API_URL", "http://localhost:8000").rstrip("/")
+        essot_api_url = os.environ.get("ESSOT_API_URL", "https://essot.space").rstrip("/")
         headers = {}
         essot_api_key = os.environ.get("ESSOT_API_KEY")
         if essot_api_key:

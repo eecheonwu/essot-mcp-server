@@ -68,7 +68,7 @@ Add the following to your IDE's MCP configuration file (e.g., `mcp_config.json` 
       ],
       "env": {
         "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "ESSOT_API_URL": "http://localhost:8000",
+        "ESSOT_API_URL": "https://essot.space",
         "ESSOT_API_KEY": "your-essot-api-key-here"
       }
     }
@@ -98,7 +98,7 @@ To ensure the background webhook listener on port `8123` starts properly, you mu
       ],
       "env": {
         "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "ESSOT_API_URL": "http://localhost:8000",
+        "ESSOT_API_URL": "https://essot.space",
         "ESSOT_API_KEY": "your-essot-api-key-here"
       }
     }
@@ -122,7 +122,7 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
       ],
       "env": {
         "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "ESSOT_API_URL": "http://localhost:8000",
+        "ESSOT_API_URL": "https://essot.space",
         "ESSOT_API_KEY": "your-essot-api-key-here"
       }
     }
@@ -150,7 +150,7 @@ If your ESSOT Web App is hosted in the cloud (e.g., DigitalOcean, AWS), you must
    To fix this, you must run a secure tunnel like **ngrok** (`ngrok http 8123`) or **Cloudflare Tunnels** on your local machine. You then configure the ESSOT Web App to send webhook triggers to the public URL provided by the tunnel.
 
 2. **Outbound (Local Laptop ➡️ Cloud):**
-   By default, the MCP server points to `http://localhost:8000` for the Web App backend. You can override this and provide authentication by setting the following environment variables:
+   By default, the MCP server points to `https://essot.space` for the Web App backend. You can override this and provide authentication by setting the following environment variables:
    - `ESSOT_API_URL` (e.g. `https://api.yourdomain.com`)
    - `ESSOT_API_KEY` (Your secure API key for the cloud backend)
 
