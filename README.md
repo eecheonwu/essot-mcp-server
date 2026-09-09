@@ -143,7 +143,7 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
 
 ## 🌐 Connecting to a Cloud-Hosted ESSOT Web App
 
-If your ESSOT Web App is hosted in the cloud, you must configure networking in both directions:
+ESSOT Web App is hosted in the cloud, you must configure networking in both directions:
 
 1. **Inbound (Cloud ➡️ Local Laptop):**
    The cloud-hosted ESSOT Web App cannot natively send webhook requests to your laptop's local port `8123` due to firewalls/NAT.
