@@ -4,13 +4,13 @@
 [![MCP Transport](https://img.shields.io/badge/mcp-stdio%20%7C%20http-green.svg)](https://modelcontextprotocol.io/)
 [![Framework](https://img.shields.io/badge/framework-FastMCP-purple.svg)](https://github.com/jlowin/fastmcp)
 
-The **ESSOT MCP Server** is the bridge between your local development environment and the **Engineering Intelligence Platform (ESSOT)**. It exposes local workspace orchestration capabilities to your AI-powered IDEs via the Model Context Protocol (MCP).
+The **ESSOT MCP Server** is the bridge between your local development environment and the **Engineering SSOT Platform (ESSOT)**. It exposes local workspace orchestration capabilities to your AI-powered IDEs via the Model Context Protocol (MCP).
 
 ---
 
-## 🚀 About the Engineering Intelligence Platform (ESSOT)
+## 🚀 About the Engineering SSOT Platform (ESSOT)
 
-The **Engineering Intelligence Platform (ESSOT)** is a modern governance and planning workspace designed for AI-driven software engineering. ESSOT automatically maintains a Single Source of Truth (SSOT), visualizes architectural knowledge graphs, and governs architectural drift.
+The **Engineering SSOT Platform (ESSOT)** is a modern governance and planning workspace designed for AI-driven software engineering. ESSOT automatically maintains a Single Source of Truth (SSOT), visualizes architectural knowledge graphs, and governs architectural drift.
 
 The **ESSOT MCP Server** empowers AI Coding Agents (such as Antigravity, Claude Desktop, Cursor, or Windsurf) to natively interact with your ESSOT project.
 
@@ -132,12 +132,12 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
 
 > **⚠️ Warning on disabling the webhook:** Without the webhook listener, the ESSOT Web App cannot remotely trigger local code generation or automatically scaffold your local workspace. The integration becomes one-directional (outbound only).
 
-
 ### Supported IDEs
 
 - **Claude Desktop**: Add to `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS).
 - **Antigravity CLI / IDE**: Add to `~/.gemini/config/mcp_config.json`.
 - **Cursor**: Configure via Settings > Features > MCP.
+- **VSCode**: Add to `.vscode/mcp_config.json`.
 
 ---
 
@@ -150,8 +150,8 @@ If your ESSOT Web App is hosted in the cloud (e.g., DigitalOcean, AWS), you must
    To fix this, you must run a secure tunnel like **ngrok** (`ngrok http 8123`) or **Cloudflare Tunnels** on your local machine. You then configure the ESSOT Web App to send webhook triggers to the public URL provided by the tunnel.
 
 2. **Outbound (Local Laptop ➡️ Cloud):**
-   By default, the MCP server points to `https://essot.space` for the Web App backend. You can override this and provide authentication by setting the following environment variables:
-   - `ESSOT_API_URL` (e.g. `https://api.yourdomain.com`)
+   By default, the MCP server points to `https://essot.space` for the Web App backend. Do not Change. Provide authentication by setting the ESSOT API KEY  environment variable:
+
    - `ESSOT_API_KEY` (Your secure API key for the cloud backend)
 
 ---
