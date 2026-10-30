@@ -1,6 +1,7 @@
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -286,18 +287,30 @@ def run_local_verification(
     if not root_path.exists():
         raise FileNotFoundError(f"Local workspace directory '{root_path}' does not exist.")
 
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    src_dir = root_path / "src"
+    paths_to_add = [str(root_path)]
+    if src_dir.exists():
+        paths_to_add.append(str(src_dir))
+    env["PYTHONPATH"] = os.pathsep.join(paths_to_add + ([existing_pythonpath] if existing_pythonpath else []))
+
     runs: List[Dict[str, Any]] = []
     for cmd in commands:
-        tokens = shlex.split(cmd.strip())
+        clean_cmd = cmd.strip()
+        if not clean_cmd:
+            continue
         start = time.perf_counter()
         try:
             proc = subprocess.run(
-                tokens,
+                clean_cmd,
                 cwd=str(root_path),
                 capture_output=True,
                 text=True,
                 timeout=120,
-                shell=False
+                shell=True,
+                stdin=subprocess.DEVNULL,
+                env=env,
             )
             duration_ms = int((time.perf_counter() - start) * 1000)
             status_str = "VERIFIED" if proc.returncode == 0 else "FAILED"
