@@ -229,6 +229,68 @@ def apply_unified_diff_to_string(original_content: str, file_diff: str) -> str:
     return "".join(result_lines)
 
 
+def resolve_workspace_file_path(root_path: Path, rel_file: str) -> Path:
+    """
+    Intelligently resolves a relative file path within workspace_root.
+    If the exact relative path does not exist, checks common monorepo/source prefixes
+    (e.g. src/<rel_file>, app/<rel_file>, backend/<rel_file>) and searches for
+    matching files in the repository before defaulting to creating a new path.
+    """
+    norm_rel = rel_file.replace("\\", "/").strip("/")
+    direct = (root_path / norm_rel).resolve()
+    if direct.exists() and direct.is_file():
+        return direct
+
+    # Check common source tree prefixes (e.g., src/frontend/package.json vs frontend/package.json)
+    for prefix in ["src", "app", "backend", "frontend"]:
+        candidate = (root_path / prefix / norm_rel).resolve()
+        if candidate.exists() and candidate.is_file():
+            logger.info("Fuzzy path match: remapped '%s' to '%s'", rel_file, candidate.relative_to(root_path).as_posix())
+            return candidate
+
+    # Search repository for unambiguous match (excluding noise directories)
+    ignore_dirs = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", ".pytest_cache"}
+    target_name = Path(norm_rel).name
+    matches = []
+    for p in root_path.rglob(target_name):
+        if any(ignored in p.parts for ignored in ignore_dirs):
+            continue
+        p_rel = p.relative_to(root_path).as_posix()
+        if p_rel.endswith(norm_rel):
+            matches.append(p)
+
+    if len(matches) == 1:
+        logger.info("Found matching repository file for '%s' at '%s'", rel_file, matches[0].relative_to(root_path).as_posix())
+        return matches[0]
+
+    return direct
+
+
+def read_workspace_files(workspace_root: str | Path, files: List[str]) -> Dict[str, Any]:
+    """
+    Reads contents and resolves exact relative paths for requested files in the workspace.
+    Used by remote cloud backends to inspect real existing code before generating diffs.
+    """
+    root_path = Path(workspace_root).resolve()
+    result = {}
+    for f in files:
+        resolved = resolve_workspace_file_path(root_path, f)
+        if resolved.exists() and resolved.is_file():
+            resolved_rel = resolved.relative_to(root_path).as_posix()
+            result[f] = {
+                "exists": True,
+                "resolved_rel_path": resolved_rel,
+                "content": resolved.read_text(encoding="utf-8", errors="replace"),
+            }
+        else:
+            result[f] = {
+                "exists": False,
+                "resolved_rel_path": f,
+                "content": "",
+            }
+    return result
+
+
 def apply_patch_to_local_workspace(
     workspace_root: str | Path,
     diff: str,
@@ -237,6 +299,7 @@ def apply_patch_to_local_workspace(
     """
     Applies unified diff directly to the files in the local workspace directory.
     Validates confinement, creates backup copies, applies diff, and writes changes.
+    Smartly resolves paths if files live in subdirectories like src/.
     """
     root_path = Path(workspace_root).resolve()
     if not root_path.exists():
@@ -252,7 +315,7 @@ def apply_patch_to_local_workspace(
     applied: List[str] = []
 
     for rel_file in touched_files:
-        target_path = (root_path / rel_file).resolve()
+        target_path = resolve_workspace_file_path(root_path, rel_file)
         # Security confinement check: prevent path traversal outside workspace
         if not str(target_path).startswith(str(root_path)):
             raise PermissionError(f"Security violation: path traversal detected for file '{rel_file}'.")
@@ -269,8 +332,9 @@ def apply_patch_to_local_workspace(
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(patched_content, encoding="utf-8")
-        applied.append(rel_file)
-        logger.info(f"Successfully applied patch to {target_path}")
+        applied_rel = target_path.relative_to(root_path).as_posix()
+        applied.append(applied_rel)
+        logger.info(f"Successfully applied patch to {target_path} (rel: {applied_rel})")
 
     return applied
 

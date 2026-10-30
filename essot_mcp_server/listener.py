@@ -18,6 +18,7 @@ from essot_mcp_server.server import (
 from essot_mcp_server.patcher import (
     apply_patch_to_local_workspace,
     run_local_verification,
+    read_workspace_files,
 )
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
@@ -140,8 +141,25 @@ async def trigger_webhook(payload: TriggerPayload, background_tasks: BackgroundT
     """Webhook listener that kicks off local SSOT generation, patch applications, or verification checks."""
     logger.info(f"Webhook hit for project {payload.project_id}: {payload.plan_type}")
 
+    # Synchronous inspection / reading of workspace files (used by remote patch generators)
+    if payload.plan_type in ("Read Files", "Get Files", "File Content", "Inspect Files"):
+        target_path = payload.project_path or os.getcwd()
+        logger.info(f"Reading workspace files from '{target_path}': {payload.touched_files}")
+        try:
+            files_data = read_workspace_files(
+                workspace_root=target_path,
+                files=payload.touched_files or [],
+            )
+            return {
+                "status": "success",
+                "files": files_data,
+            }
+        except Exception as exc:
+            logger.error(f"Failed to read workspace files: {exc}")
+            raise HTTPException(status_code=400, detail=str(exc))
+
     # Synchronous patch application (executes in milliseconds on local workspace files)
-    if payload.plan_type in ("Apply Patch", "Patch", "Forge Patch"):
+    elif payload.plan_type in ("Apply Patch", "Patch", "Forge Patch"):
         target_path = payload.project_path or os.getcwd()
         logger.info(f"Applying patch to local workspace '{target_path}'")
         try:
