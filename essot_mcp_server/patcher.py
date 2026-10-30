@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import shlex
@@ -339,13 +340,159 @@ def apply_patch_to_local_workspace(
     return applied
 
 
+def resolve_workspace_dir(root_path: Path, rel_dir: str | Path) -> Optional[Path]:
+    """
+    Resolves a relative directory to an actual directory within workspace_root.
+    Handles monorepos and subdirectories (e.g. 'frontend' -> 'src/frontend').
+    """
+    clean_rel = str(rel_dir).strip().strip("'\"").replace("\\", "/").strip("/")
+    if not clean_rel or clean_rel == ".":
+        return root_path
+
+    # Direct directory
+    direct = (root_path / clean_rel).resolve()
+    if direct.is_dir() and str(direct).startswith(str(root_path)):
+        return direct
+
+    # Common source tree prefixes: src/, app/, backend/, frontend/
+    prefixes = ["src", "app", "backend", "frontend"]
+    for prefix in prefixes:
+        candidate = (root_path / prefix / clean_rel).resolve()
+        if candidate.is_dir() and str(candidate).startswith(str(root_path)):
+            logger.info("Resolved directory '%s' to '%s'", rel_dir, candidate.relative_to(root_path).as_posix())
+            return candidate
+
+    # Search for matching subdirectory (excluding noise)
+    ignore_dirs = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", ".pytest_cache"}
+    target_name = Path(clean_rel).name.lower()
+    for item in root_path.rglob("*"):
+        if item.is_dir() and item.name.lower() == target_name:
+            if any(ignored in item.parts for ignored in ignore_dirs):
+                continue
+            logger.info("Found matching repository directory for '%s' at '%s'", rel_dir, item.relative_to(root_path).as_posix())
+            return item
+
+    return None
+
+
+def remap_verification_command(
+    root_path: Path,
+    cmd: str,
+    current_cwd: Optional[Path] = None
+) -> Tuple[str, Path]:
+    """
+    Remaps verification command paths and scripts to match the actual repository structure.
+    - Rewrites 'cd frontend && npm test' -> 'cd /d "src\\frontend" && npm run build'
+    - Detects missing npm 'test' scripts and falls back to 'npm run build'
+    - Returns (remapped_command_string, target_working_directory)
+    """
+    base_cwd = current_cwd or root_path
+    clean_cmd = cmd.strip()
+
+    # Pattern 1: Chained cd: "cd frontend && npm test"
+    chained_match = re.match(
+        r'^\s*cd(?:\s+/d)?\s+(?:"([^"]+)"|\'([^\']+)\'|([^\s;&|]+))\s*([;&|]{1,2})\s*(.+)$',
+        clean_cmd,
+        re.IGNORECASE
+    )
+    if chained_match:
+        raw_dir = chained_match.group(1) or chained_match.group(2) or chained_match.group(3)
+        sep = chained_match.group(4)
+        rest_cmd = chained_match.group(5).strip()
+
+        resolved_dir = resolve_workspace_dir(root_path, raw_dir)
+        if resolved_dir:
+            rel_dir = resolved_dir.relative_to(root_path).as_posix()
+            
+            # Check package.json for test script fallback
+            if rest_cmd in ("npm test", "npm run test", "yarn test", "pnpm test"):
+                pkg_file = resolved_dir / "package.json"
+                if pkg_file.is_file():
+                    try:
+                        data = json.loads(pkg_file.read_text(encoding="utf-8"))
+                        scripts = data.get("scripts", {})
+                        if "test" not in scripts:
+                            if "build" in scripts:
+                                logger.info("Remapping 'npm test' to 'npm run build' in %s", rel_dir)
+                                rest_cmd = "npm run build"
+                            elif "test:e2e" in scripts:
+                                rest_cmd = "npm run test:e2e"
+                            elif "lint" in scripts:
+                                rest_cmd = "npm run lint"
+                    except Exception as e:
+                        logger.debug("Failed reading package.json in %s: %s", resolved_dir, e)
+
+            norm_rel = rel_dir.replace("/", "\\") if os.name == "nt" else rel_dir
+            new_cmd = f'cd /d "{norm_rel}" {sep} {rest_cmd}' if os.name == "nt" else f'cd "{rel_dir}" {sep} {rest_cmd}'
+            logger.info("Remapped command '%s' -> '%s' (target_cwd: %s)", cmd, new_cmd, resolved_dir)
+            return new_cmd, resolved_dir
+
+    # Pattern 2: Standalone cd: "cd frontend"
+    single_cd_match = re.match(
+        r'^\s*cd(?:\s+/d)?\s+(?:"([^"]+)"|\'([^\']+)\'|([^\s]+))\s*$',
+        clean_cmd,
+        re.IGNORECASE
+    )
+    if single_cd_match:
+        raw_dir = single_cd_match.group(1) or single_cd_match.group(2) or single_cd_match.group(3)
+        resolved_dir = resolve_workspace_dir(root_path, raw_dir)
+        if resolved_dir:
+            rel_dir = resolved_dir.relative_to(root_path).as_posix()
+            norm_rel = rel_dir.replace("/", "\\") if os.name == "nt" else rel_dir
+            new_cmd = f'cd /d "{norm_rel}"' if os.name == "nt" else f'cd "{rel_dir}"'
+            logger.info("Remapped standalone cd '%s' -> '%s' (target_cwd: %s)", cmd, new_cmd, resolved_dir)
+            return new_cmd, resolved_dir
+
+    # Pattern 3: --prefix flag: "npm test --prefix frontend"
+    prefix_match = re.search(r'--prefix\s+(?:"([^"]+)"|\'([^\']+)\'|([^\s]+))', clean_cmd)
+    if prefix_match:
+        raw_dir = prefix_match.group(1) or prefix_match.group(2) or prefix_match.group(3)
+        resolved_dir = resolve_workspace_dir(root_path, raw_dir)
+        if resolved_dir:
+            rel_dir = resolved_dir.relative_to(root_path).as_posix()
+            remapped_cmd = clean_cmd.replace(
+                prefix_match.group(0),
+                f'--prefix "{rel_dir}"'
+            )
+            pkg_file = resolved_dir / "package.json"
+            if pkg_file.is_file() and ("npm test" in remapped_cmd or "npm run test" in remapped_cmd):
+                try:
+                    data = json.loads(pkg_file.read_text(encoding="utf-8"))
+                    scripts = data.get("scripts", {})
+                    if "test" not in scripts and "build" in scripts:
+                        remapped_cmd = remapped_cmd.replace("npm test", "npm run build").replace("npm run test", "npm run build")
+                except Exception:
+                    pass
+            logger.info("Remapped prefix command '%s' -> '%s'", cmd, remapped_cmd)
+            return remapped_cmd, base_cwd
+
+    # Pattern 4: Standalone npm test in base_cwd
+    if clean_cmd in ("npm test", "npm run test"):
+        pkg_file = base_cwd / "package.json"
+        if pkg_file.is_file():
+            try:
+                data = json.loads(pkg_file.read_text(encoding="utf-8"))
+                scripts = data.get("scripts", {})
+                if "test" not in scripts:
+                    if "build" in scripts:
+                        logger.info("Remapped '%s' to 'npm run build' in %s", clean_cmd, base_cwd)
+                        return "npm run build", base_cwd
+                    elif "test:e2e" in scripts:
+                        return "npm run test:e2e", base_cwd
+            except Exception:
+                pass
+
+    return clean_cmd, base_cwd
+
+
 def run_local_verification(
     workspace_root: str | Path,
     commands: List[str]
 ) -> List[Dict[str, Any]]:
     """
-    Runs deterministic verification commands (e.g. pytest, ruff) in the local workspace directory.
+    Runs deterministic verification commands (e.g. pytest, npm run build) in the local workspace directory.
     Captures exit codes, duration, stdout, and stderr.
+    Intelligently remaps paths and scripts for monorepos / subdirectories.
     """
     root_path = Path(workspace_root).resolve()
     if not root_path.exists():
@@ -353,22 +500,32 @@ def run_local_verification(
 
     env = os.environ.copy()
     existing_pythonpath = env.get("PYTHONPATH", "")
-    src_dir = root_path / "src"
     paths_to_add = [str(root_path)]
-    if src_dir.exists():
-        paths_to_add.append(str(src_dir))
+    for sub in ["src", "src/backend", "backend", "app"]:
+        sub_path = root_path / sub
+        if sub_path.is_dir():
+            paths_to_add.append(str(sub_path))
     env["PYTHONPATH"] = os.pathsep.join(paths_to_add + ([existing_pythonpath] if existing_pythonpath else []))
 
+    active_cwd = root_path
     runs: List[Dict[str, Any]] = []
+
     for cmd in commands:
         clean_cmd = cmd.strip()
         if not clean_cmd:
             continue
+
+        exec_cmd, target_cwd = remap_verification_command(root_path, clean_cmd, current_cwd=active_cwd)
+        active_cwd = target_cwd
+
+        exec_dir = root_path if ("cd /d" in exec_cmd or "cd " in exec_cmd) else active_cwd
+
+        logger.info("Running verification command: '%s' (original: '%s') in cwd '%s'", exec_cmd, clean_cmd, exec_dir)
         start = time.perf_counter()
         try:
             proc = subprocess.run(
-                clean_cmd,
-                cwd=str(root_path),
+                exec_cmd,
+                cwd=str(exec_dir),
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -378,8 +535,10 @@ def run_local_verification(
             )
             duration_ms = int((time.perf_counter() - start) * 1000)
             status_str = "VERIFIED" if proc.returncode == 0 else "FAILED"
+            logger.info("Verification step finished: exit=%d status=%s duration=%dms", proc.returncode, status_str, duration_ms)
             runs.append({
-                "command": cmd,
+                "command": clean_cmd,
+                "executed_command": exec_cmd,
                 "exit_code": proc.returncode,
                 "status": status_str,
                 "stdout": proc.stdout or "",
@@ -388,8 +547,10 @@ def run_local_verification(
             })
         except subprocess.TimeoutExpired as te:
             duration_ms = int((time.perf_counter() - start) * 1000)
+            logger.warning("Verification step timed out after 120s: '%s'", exec_cmd)
             runs.append({
-                "command": cmd,
+                "command": clean_cmd,
+                "executed_command": exec_cmd,
                 "exit_code": -1,
                 "status": "PARTIALLY_VERIFIED",
                 "stdout": te.stdout or "",
@@ -398,8 +559,10 @@ def run_local_verification(
             })
         except Exception as exc:
             duration_ms = int((time.perf_counter() - start) * 1000)
+            logger.error("Verification step execution error: %s", exc)
             runs.append({
-                "command": cmd,
+                "command": clean_cmd,
+                "executed_command": exec_cmd,
                 "exit_code": 1,
                 "status": "FAILED",
                 "stdout": "",
