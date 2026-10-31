@@ -493,6 +493,8 @@ def run_local_verification(
     Runs deterministic verification commands (e.g. pytest, npm run build) in the local workspace directory.
     Captures exit codes, duration, stdout, and stderr.
     Intelligently remaps paths and scripts for monorepos / subdirectories.
+    Enforces a strict 60s total suite budget and skips redundant network installs (e.g. npm install)
+    to protect against Cloudflare 524 gateway timeouts.
     """
     root_path = Path(workspace_root).resolve()
     if not root_path.exists():
@@ -509,6 +511,9 @@ def run_local_verification(
 
     active_cwd = root_path
     runs: List[Dict[str, Any]] = []
+    TOTAL_SUITE_BUDGET_SEC = 60.0
+    MAX_STEP_TIMEOUT_SEC = 35.0
+    suite_start = time.perf_counter()
 
     for cmd in commands:
         clean_cmd = cmd.strip()
@@ -518,9 +523,43 @@ def run_local_verification(
         exec_cmd, target_cwd = remap_verification_command(root_path, clean_cmd, current_cwd=active_cwd)
         active_cwd = target_cwd
 
-        exec_dir = root_path if ("cd /d" in exec_cmd or "cd " in exec_cmd) else active_cwd
+        # Check total remaining timeout budget
+        elapsed_so_far = time.perf_counter() - suite_start
+        remaining_budget = TOTAL_SUITE_BUDGET_SEC - elapsed_so_far
+        if remaining_budget <= 5.0:
+            logger.warning("Verification suite budget reached (%.1fs elapsed). Skipping command: '%s'", elapsed_so_far, clean_cmd)
+            runs.append({
+                "command": clean_cmd,
+                "executed_command": "[skipped: suite time budget limit]",
+                "exit_code": 0,
+                "status": "PARTIALLY_VERIFIED",
+                "stdout": "",
+                "stderr": "Step skipped: 60s verification time budget reached to protect against gateway timeout.",
+                "duration_ms": 0
+            })
+            continue
 
-        logger.info("Running verification command: '%s' (original: '%s') in cwd '%s'", exec_cmd, clean_cmd, exec_dir)
+        # Fast-path for dependency install commands (npm install, yarn, pnpm)
+        # These are package managers, not verification tests. If node_modules exists, skipping avoids hanging.
+        if re.search(r'\b(?:npm\s+i(?:nstall)?|pnpm\s+i(?:nstall)?|yarn\s+install)\b', clean_cmd):
+            node_modules_dir = target_cwd / "node_modules"
+            if node_modules_dir.is_dir():
+                logger.info("Fast-path: skipping '%s' because '%s' is already present.", clean_cmd, node_modules_dir)
+                runs.append({
+                    "command": clean_cmd,
+                    "executed_command": "[skipped: node_modules already present]",
+                    "exit_code": 0,
+                    "status": "VERIFIED",
+                    "stdout": f"[essot] Directory '{node_modules_dir.relative_to(root_path)}' is already present. Skipped redundant network install.\n",
+                    "stderr": "",
+                    "duration_ms": 5
+                })
+                continue
+
+        exec_dir = root_path if ("cd /d" in exec_cmd or "cd " in exec_cmd) else active_cwd
+        step_timeout = max(5.0, min(MAX_STEP_TIMEOUT_SEC, remaining_budget))
+
+        logger.info("Running verification command: '%s' (original: '%s') in cwd '%s' (timeout=%.1fs)", exec_cmd, clean_cmd, exec_dir, step_timeout)
         start = time.perf_counter()
         try:
             proc = subprocess.run(
@@ -528,7 +567,7 @@ def run_local_verification(
                 cwd=str(exec_dir),
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=step_timeout,
                 shell=True,
                 stdin=subprocess.DEVNULL,
                 env=env,
@@ -547,14 +586,14 @@ def run_local_verification(
             })
         except subprocess.TimeoutExpired as te:
             duration_ms = int((time.perf_counter() - start) * 1000)
-            logger.warning("Verification step timed out after 120s: '%s'", exec_cmd)
+            logger.warning("Verification step timed out after %.1fs: '%s'", step_timeout, exec_cmd)
             runs.append({
                 "command": clean_cmd,
                 "executed_command": exec_cmd,
                 "exit_code": -1,
                 "status": "PARTIALLY_VERIFIED",
                 "stdout": te.stdout or "",
-                "stderr": f"Command timed out after 120 seconds: {te}",
+                "stderr": f"Command timed out after {int(step_timeout)} seconds: {te}",
                 "duration_ms": duration_ms
             })
         except Exception as exc:

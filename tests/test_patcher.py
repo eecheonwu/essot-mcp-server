@@ -61,3 +61,19 @@ def test_run_local_verification_success(tmp_path: Path):
     assert len(runs) == 1
     assert runs[0]["status"] == "VERIFIED"
     assert runs[0]["exit_code"] == 0
+
+
+def test_run_local_verification_npm_install_fast_path(tmp_path: Path):
+    frontend_dir = tmp_path / "src" / "frontend"
+    frontend_dir.mkdir(parents=True)
+    (frontend_dir / "node_modules").mkdir()
+
+    runs = run_local_verification(
+        workspace_root=tmp_path,
+        commands=["cd frontend && npm install"]
+    )
+    assert len(runs) == 1
+    assert runs[0]["status"] == "VERIFIED"
+    assert runs[0]["exit_code"] == 0
+    assert "node_modules already present" in runs[0]["executed_command"]
+
