@@ -67,7 +67,8 @@ Add the following to your IDE's MCP configuration file (e.g., `mcp_config.json` 
         "essot_mcp_server/server.py"
       ],
       "env": {
-        "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
+        // Optional if using ESSOT Web App PKCE:
+        // "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
         "ESSOT_API_URL": "https://essot.space",
         "ESSOT_API_KEY": "your-essot-api-key-here"
       }
@@ -97,7 +98,8 @@ To ensure the background webhook listener on port `8123` starts properly, you mu
         "essot_mcp_server.server"
       ],
       "env": {
-        "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
+        // Optional if using ESSOT Web App PKCE:
+        // "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
         "ESSOT_API_URL": "https://essot.space",
         "ESSOT_API_KEY": "your-essot-api-key-here"
       }
@@ -121,7 +123,8 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
         "essot-mcp-server"
       ],
       "env": {
-        "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
+        // Optional if using ESSOT Web App PKCE:
+        // "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
         "ESSOT_API_URL": "https://essot.space",
         "ESSOT_API_KEY": "your-essot-api-key-here"
       }

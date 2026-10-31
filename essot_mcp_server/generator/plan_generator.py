@@ -5,7 +5,7 @@ from openai import OpenAI
 logger = logging.getLogger("essot_mcp_server.generator")
 
 class PlanGenerator:
-    def __init__(self, provider: str = "openrouter"):
+    def __init__(self, provider: str = "openrouter", api_key: str = None):
         self.raw_provider = provider
         if provider.startswith("openrouter:"):
             self.provider = "openrouter"
@@ -13,9 +13,9 @@ class PlanGenerator:
             self.provider = provider
             
         if self.provider == "openrouter":
-            self.api_key = os.environ.get("OPENROUTER_API_KEY")
+            self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
             if not self.api_key:
-                logger.warning("OPENROUTER_API_KEY not found in environment, plan generation may fail.")
+                logger.info("OPENROUTER_API_KEY not set locally; plans are generated via the ESSOT Web App PKCE connection.")
                 self.openrouter_client = None
             else:
                 self.openrouter_client = OpenAI(
@@ -31,6 +31,13 @@ class PlanGenerator:
         Extracts specific model from provider string if passed like openrouter:anthropic/...
         """
         try:
+            if not self.openrouter_client:
+                return (
+                    "# Plan Generation Note\n\n"
+                    "Plan generation is coordinated through the ESSOT Web App using your linked OpenRouter PKCE connection. "
+                    "Trigger generation from the ESSOT Studio or configure OPENROUTER_API_KEY locally for offline agent execution."
+                )
+
             if ":" in self.raw_provider and not model_name:
                 model_name = self.raw_provider.split(":", 1)[1]
                 

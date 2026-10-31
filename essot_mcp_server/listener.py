@@ -41,6 +41,7 @@ class TriggerPayload(BaseModel):
     diff_hash: Optional[str] = None
     touched_files: List[str] = []
     commands: List[str] = []
+    api_key: Optional[str] = None
 
 
 plan_lock = threading.Lock()
@@ -48,6 +49,8 @@ plan_lock = threading.Lock()
 
 def process_plan(payload: TriggerPayload):
     with plan_lock:
+        if payload.api_key:
+            os.environ["OPENROUTER_API_KEY"] = payload.api_key
         knowledge_dir = get_knowledge_dir(payload.project_path)
         logger.info(f"Received trigger to generate {payload.plan_type} in {knowledge_dir}")
         
