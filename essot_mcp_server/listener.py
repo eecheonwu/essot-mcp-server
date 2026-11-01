@@ -42,6 +42,7 @@ class TriggerPayload(BaseModel):
     touched_files: List[str] = []
     commands: List[str] = []
     api_key: Optional[str] = None
+    api_url: Optional[str] = None
 
 
 plan_lock = threading.Lock()
@@ -127,14 +128,14 @@ directories:
         if payload.plan_id:
             try:
                 import httpx
-                essot_api_url = os.environ.get("ESSOT_API_URL", "https://essot.space").rstrip("/")
+                essot_api_url = (payload.api_url or os.environ.get("ESSOT_API_URL", "https://essot.space")).rstrip("/")
                 headers = {}
                 essot_api_key = os.environ.get("ESSOT_API_KEY")
                 if essot_api_key:
                     headers["Authorization"] = f"Bearer {essot_api_key}"
                 
                 httpx.post(f"{essot_api_url}/api/v1/plans/{payload.plan_id}/complete", headers=headers, timeout=5.0)
-                logger.info(f"Successfully notified backend of plan completion for {payload.plan_id}")
+                logger.info(f"Successfully notified backend of plan completion for {payload.plan_id} at {essot_api_url}")
             except Exception as e:
                 logger.error(f"Failed to notify backend of plan completion: {e}")
 

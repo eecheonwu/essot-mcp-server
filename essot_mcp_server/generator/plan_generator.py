@@ -20,7 +20,9 @@ class PlanGenerator:
             else:
                 self.openrouter_client = OpenAI(
                     base_url="https://openrouter.ai/api/v1",
-                    api_key=self.api_key
+                    api_key=self.api_key,
+                    timeout=300.0,
+                    max_retries=3,
                 )
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
@@ -29,6 +31,7 @@ class PlanGenerator:
         """
         Generates a comprehensive markdown plan.
         Extracts specific model from provider string if passed like openrouter:anthropic/...
+        Guarantees zero cut-off via high max_tokens and automated multi-chunk continuation.
         """
         try:
             if not self.openrouter_client:
@@ -46,16 +49,51 @@ class PlanGenerator:
 
             if self.provider == "openrouter":
                 logger.info(f"Generating plan using OpenRouter: {model_name}...")
+                
+                messages = [
+                    {
+                        "role": "system", 
+                        "content": system_prompt + "\n\nCRITICAL COMPLETENESS REQUIREMENT:\nYou MUST provide a complete, unbroken, professional-grade specification. Do not trail off, leave placeholders, or terminate prematurely before all sections, diagrams, data schemas, and tasks are fully written."
+                    },
+                    {"role": "user", "content": context}
+                ]
+                
                 response = self.openrouter_client.chat.completions.create(
                     model=model_name,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": context}
-                    ],
+                    messages=messages,
                     temperature=0.2,
-                    max_tokens=8192,
+                    max_tokens=16384,
                 )
-                return response.choices[0].message.content
+                
+                choice = response.choices[0]
+                full_content = choice.message.content or ""
+                
+                # Auto-continuation loop: if the model hit token length limit, seamlessly continue
+                continuation_count = 0
+                max_continuations = 4
+                
+                while getattr(choice, "finish_reason", None) == "length" and continuation_count < max_continuations:
+                    continuation_count += 1
+                    logger.info(f"Plan generation reached token length limit (finish_reason='length'). Requesting continuation chunk {continuation_count}/{max_continuations}...")
+                    
+                    messages.append({"role": "assistant", "content": full_content})
+                    messages.append({
+                        "role": "user",
+                        "content": "Your previous response reached the token limit and was cut off. Please continue writing the plan immediately from where you stopped. Do not repeat what you already wrote. Resume seamlessly from the exact last line/sentence and finish all remaining sections."
+                    })
+                    
+                    cont_resp = self.openrouter_client.chat.completions.create(
+                        model=model_name,
+                        messages=messages,
+                        temperature=0.2,
+                        max_tokens=16384,
+                    )
+                    choice = cont_resp.choices[0]
+                    chunk = choice.message.content or ""
+                    full_content += "\n\n" + chunk
+                
+                logger.info(f"Successfully generated complete plan ({len(full_content)} chars, {continuation_count} continuations).")
+                return full_content
                 
         except Exception as e:
             logger.error(f"Failed to generate plan via {self.provider}: {str(e)}. Falling back to STUB.")
