@@ -4,6 +4,7 @@ import sys
 import threading
 from typing import List, Dict, Optional
 from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from pydantic import BaseModel
 
@@ -25,6 +26,14 @@ logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("trigger_listener")
 
 app = FastAPI(title="ESSOT Local MCP Webhook Listener")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class TriggerPayload(BaseModel):
