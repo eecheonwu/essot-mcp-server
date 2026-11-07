@@ -79,3 +79,17 @@ def test_trigger_http_endpoint(tmp_path: Path):
     data = resp.json()
     assert data["status"] == "success"
     assert "sample.txt" in data["files"]
+
+
+def test_execute_sync_task_write_file(tmp_path: Path):
+    payload = {
+        "plan_type": "Write File",
+        "project_path": str(tmp_path),
+        "file_path": "implementation-plan.md",
+        "content": "# Test Implementation Plan Content\n\n- Task 1"
+    }
+    result = execute_sync_task(payload)
+    assert result["status"] == "success"
+    written_file = tmp_path / "implementation-plan.md"
+    assert written_file.exists()
+    assert "# Test Implementation Plan Content" in written_file.read_text(encoding="utf-8")

@@ -196,6 +196,19 @@ def execute_sync_task(payload_dict: Dict[str, Any]) -> Dict[str, Any]:
             "runs": runs,
         }
 
+    elif plan_type in ("Write File", "Save File", "Write Plan", "Materialize File"):
+        file_path = payload_dict.get("file_path") or "plan.md"
+        content = payload_dict.get("content") or ""
+        dest = get_project_root(target_path) / file_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(content, encoding="utf-8")
+        logger.info(f"Successfully wrote {len(content)} chars to {dest}")
+        return {
+            "status": "success",
+            "message": f"Successfully wrote {file_path}",
+            "file_path": str(dest)
+        }
+
     else:
         # Plan or Local SSOT Sync
         payload_obj = TriggerPayload(**payload_dict)
