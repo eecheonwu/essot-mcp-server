@@ -2,6 +2,13 @@ import os
 import sys
 import logging
 from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from mcp.server.fastmcp import FastMCP
 
 from essot_mcp_server.generator.plan_generator import PlanGenerator
@@ -177,15 +184,12 @@ def synchronize_ssot(update_summary: str, project_path: str = None) -> str:
         logger.error(f"Sync failed: {e}")
         return f"Error during synchronization: {e}"
 
-if __name__ == "__main__":
-    logger.info("Starting ESSOT MCP Server...")
-    
-    # === Start Webhook Listener in Background ===
+def start_background_worker():
+    """Starts the outbound WebSocket worker & local fallback listener in a daemon thread."""
     import threading
     import socket
     import uvicorn
     
-    # Check if port is already in use
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         if s.connect_ex(('127.0.0.1', 8123)) != 0:
             def run_uvicorn():
@@ -197,9 +201,14 @@ if __name__ == "__main__":
                 
             t = threading.Thread(target=run_uvicorn, daemon=True)
             t.start()
-            logger.info("Background webhook listener started on port 8123.")
+            logger.info("Background outbound worker and local listener started on port 8123.")
         else:
-            logger.info("Port 8123 is already in use. Assuming webhook listener is already running.")
-    # ============================================
-    
+            logger.info("Local port 8123 is already bound. Outbound worker already active.")
+
+def main():
+    logger.info("Starting ESSOT MCP Server...")
+    start_background_worker()
     mcp.run()
+
+if __name__ == "__main__":
+    main()

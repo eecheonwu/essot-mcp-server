@@ -3,5 +3,5 @@ requests
 pydantic
 fastapi
 uvicorn
-openai  
- 
+openai
+python-dotenv

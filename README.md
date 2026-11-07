@@ -19,7 +19,7 @@ The **ESSOT MCP Server** empowers AI Coding Agents (such as Antigravity, Claude 
 This MCP server operates in a **dual-mode architecture**:
 
 1. **Stdio MCP Interface**: Seamlessly exposes AI tools to your local IDE Agent, allowing it to pull architecture guidelines, parse SSOT requirements, and automatically synchronize your code drift with the remote ESSOT Knowledge Graph.
-2. **Background Webhook Listener**: Upon initialization, the server silently spawns an HTTP listener on port `8123`. This allows the cloud-based **ESSOT Web App** to trigger deep architectural tasks (like generating an Implementation Plan) which are then executed securely on your local file system.
+2. **Enterprise Outbound Worker Tunnel**: Automatically establishes an encrypted outbound WebSocket connection over standard TLS (Port 443) to the ESSOT Web App. This allows the cloud-based **ESSOT Web App** to dispatch deep architectural tasks (scaffolding SSOT, generating plans, running Forge verifications) directly to your local workspace without opening any inbound firewall ports. (An internal `127.0.0.1:8123` listener is also maintained as a fallback for offline/local development).
 
 ---
 
@@ -81,9 +81,9 @@ Add the following to your IDE's MCP configuration file (e.g., `mcp_config.json` 
 
 You can run the MCP server directly from the remote GitHub repository using `uv`'s ability to run code from Git URLs.
 
-**1. Full Features (Includes Webhook Listener)**
+**1. Full Features (Includes Outbound Worker Tunnel)**
 
-To ensure the background webhook listener on port `8123` starts properly, you must run the server as a module. This allows inbound remote triggers from the ESSOT Web App.
+To ensure the background outbound worker starts properly, you must run the server as a module. This establishes the permanent encrypted tunnel with ESSOT Cloud:
 
 ```json
 {
@@ -108,9 +108,9 @@ To ensure the background webhook listener on port `8123` starts properly, you mu
 }
 ```
 
-**2. MCP Tools Only (No Webhook Listener)**
+**2. MCP Tools Only (Standalone Stdio Mode)**
 
-If you only want the MCP tools (outbound capabilities) and *do not* need the background webhook listener, you can use the built-in script entry point with `uvx`:
+If you only want the local IDE tools and do not wish to run the background worker tunnel:
 
 ```json
 {
@@ -133,7 +133,7 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
 }
 ```
 
-> **⚠️ Warning on disabling the webhook:** Without the webhook listener, the ESSOT Web App cannot remotely trigger local code generation or automatically scaffold your local workspace. The integration becomes one-directional (outbound only).
+> **💡 Tip:** Both configurations automatically start the background outbound worker tunnel whenever your IDE launches the server, seamlessly bridging tasks with ESSOT Cloud.
 
 ### Supported IDEs
 
@@ -144,18 +144,43 @@ If you only want the MCP tools (outbound capabilities) and *do not* need the bac
 
 ---
 
-## 🌐 Connecting to a Cloud-Hosted ESSOT Web App
+## 🌐 Permanent Secure Outbound Worker Tunnel (Native IDE Bridge)
 
-ESSOT Web App is hosted in the cloud, you must configure networking in both directions:
+When connecting to the cloud-hosted ESSOT Web App (`https://essot.space`):
 
-1. **Inbound (Cloud ➡️ Local Laptop):**
-   The cloud-hosted ESSOT Web App cannot natively send webhook requests to your laptop's local port `8123` due to firewalls/NAT.
-   To fix this, you must run a secure tunnel like **ngrok** (`ngrok http 8123`) or **Cloudflare Tunnels** on your local machine. You then configure the ESSOT Web App to send webhook triggers to the public URL provided by the tunnel.
+1. **Enterprise Security & Zero Open Ports:**
+   The MCP server uses an **outbound-only WebSocket architecture** over standard encrypted TLS (Port 443). Corporate firewalls and NAT permit outbound HTTPS/WSS traffic freely. Once authenticated, a bidirectional full-duplex session is established directly with ESSOT Cloud. No public ingress ports or third-party tunnel relays are required.
 
-2. **Outbound (Local Laptop ➡️ Cloud):**
-   By default, the MCP server points to `https://essot.space` for the Web App backend. Do not Change. Provide authentication by setting the ESSOT API KEY  environment variable:
+2. **Native IDE Setup (1 Step):**
+   Generate your `ESSOT_API_KEY` from **User Settings ⚙️** in the ESSOT Web App, and configure it directly in your IDE's MCP config:
 
-   - `ESSOT_API_KEY` (Your secure API key for the cloud backend)
+   ```json
+   {
+     "mcpServers": {
+       "essot-mcp-server": {
+         "command": "uv",
+         "args": [
+           "run",
+           "--with",
+           "git+https://github.com/eecheonwu/essot-mcp-server.git",
+           "-m",
+           "essot_mcp_server.server"
+         ],
+         "env": {
+           "ESSOT_API_KEY": "essot_your_api_key_here"
+         }
+       }
+     }
+   }
+   ```
+
+   When your IDE opens, the server starts automatically and logs:
+
+   ```text
+   🟢 Outbound WebSocket tunnel established with ESSOT Cloud. Permanent tunnel active.
+   ```
+
+   Now, clicking **Scaffold Local SSOT** or **Generate Plan** in the Web App, or running Forge verification tests, immediately dispatches tasks to your local workspace without any terminal commands or firewall adjustments.
 
 ---
 
@@ -163,7 +188,7 @@ ESSOT Web App is hosted in the cloud, you must configure networking in both dire
 
 - **Python**: `3.10` or higher
 - **Package Manager**: [uv](https://github.com/astral-sh/uv) by Astral
-- **Ports**: Port `8123` must be available for the ESSOT Webhook Listener.
+- **Inbound Ports**: **Zero incoming ports required**. Remote cloud dispatch operates 100% via outbound encrypted WebSocket (TLS Port 443).
 
 ## 🤝 Contributing
 

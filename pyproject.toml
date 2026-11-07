@@ -15,7 +15,8 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "openai>=3.3.0",
+    "python-dotenv",
 ]
 
 [project.scripts]
-essot-mcp-server = "essot_mcp_server.server:mcp.run"
+essot-mcp-server = "essot_mcp_server.server:main"
