@@ -9,7 +9,13 @@ try:
 except ImportError:
     pass
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP
+except (ImportError, ModuleNotFoundError):
+    try:
+        from fastmcp import FastMCP
+    except (ImportError, ModuleNotFoundError):
+        from mcp.server.mcpserver import MCPServer as FastMCP
 
 from essot_mcp_server.generator.plan_generator import PlanGenerator
 from essot_mcp_server.prompts.architect import ARCHITECT_PROMPT
