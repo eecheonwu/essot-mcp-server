@@ -58,7 +58,7 @@ essot-mcp-server = "essot_mcp_server.server:main"
 
 [project.urls]
 Homepage = "https://essot.space"
-Repository = "https://github.com/eecheonwu/essot-mcp-server"
+Repository = "https://pypi.org/project/essot-mcp-server/"
 Issues = "https://github.com/eecheonwu/essot-mcp-server/issues"
 
 [tool.hatch.build.targets.wheel]
