@@ -4,22 +4,20 @@
 [![MCP Transport](https://img.shields.io/badge/mcp-stdio%20%7C%20http-green.svg)](https://modelcontextprotocol.io/)
 [![Framework](https://img.shields.io/badge/framework-FastMCP-purple.svg)](https://github.com/jlowin/fastmcp)
 
-The **ESSOT MCP Server** is the bridge between your local development environment and the **Engineering SSOT Platform (ESSOT)**. It exposes local workspace orchestration capabilities to your AI-powered IDEs via the Model Context Protocol (MCP).
+The **ESSOT MCP Server** is the bridge between your local development environment and the **Engineering SSOT Platform (ESSOT)**. It exposes local workspace orchestration capabilities to your AI-powered development workflow.
 
 ---
 
 ## 🚀 About the Engineering SSOT Platform (ESSOT)
 
-The **Engineering SSOT Platform (ESSOT)** is a modern governance and planning workspace designed for AI-driven software engineering. ESSOT automatically maintains a Single Source of Truth (SSOT), visualizes architectural knowledge graphs, and governs architectural drift.
-
-The **ESSOT MCP Server** empowers AI Coding Agents (such as Antigravity, Claude Desktop, Cursor, or Windsurf) to natively interact with your ESSOT project.
+The **Engineering SSOT Platform (ESSOT)** is a modern governance and planning workspace designed for AI-driven software engineering. ESSOT automatically maintains a Single Source of Truth (SSOT), empowering AI Coding Agents (such as Antigravity, Claude Desktop, Cursor, or Windsurf) to natively interact with your ESSOT project.
 
 ### How it Connects to ESSOT
 
 This MCP server operates in a **dual-mode architecture**:
 
-1. **Stdio MCP Interface**: Seamlessly exposes AI tools to your local IDE Agent, allowing it to pull architecture guidelines, parse SSOT requirements, and automatically synchronize your code drift with the remote ESSOT Knowledge Graph.
-2. **Enterprise Outbound Worker Tunnel**: Automatically establishes an encrypted outbound WebSocket connection over standard TLS (Port 443) to the ESSOT Web App. This allows the cloud-based **ESSOT Web App** to dispatch deep architectural tasks (scaffolding SSOT, generating plans, running Forge verifications) directly to your local workspace without opening any inbound firewall ports. (An internal `127.0.0.1:8123` listener is also maintained as a fallback for offline/local development).
+1. **Stdio MCP Interface**: Seamlessly exposes AI tools to your local IDE Agent, allowing it to pull architecture guidelines, parse SSOT requirements, and automatically synchronize your code drift.
+2. **Enterprise Outbound Worker Tunnel**: Automatically establishes an encrypted outbound WebSocket connection over standard TLS (Port 443) to the ESSOT Web App. This allows the cloud-based ESSOT platform to securely dispatch tasks to your local workspace.
 
 ---
 
@@ -65,6 +63,7 @@ Add `essot-mcp-server` directly to your IDE's MCP configuration:
 
 #### Using pipx:
 ```json
+
 {
   "mcpServers": {
     "essot-mcp-server": {
@@ -113,7 +112,7 @@ pip install essot-mcp-server
 When connecting to the cloud-hosted ESSOT Web App (`https://essot.space`):
 
 1. **Enterprise Security & Zero Open Ports:**
-   The MCP server uses an **outbound-only WebSocket architecture** over standard encrypted TLS (Port 443). Corporate firewalls and NAT permit outbound HTTPS/WSS traffic freely. Once authenticated, a bidirectional full-duplex session is established directly with ESSOT Cloud. No public ingress ports or third-party tunnel relays are required.
+   The MCP server uses an **outbound-only WebSocket architecture** over standard encrypted TLS (Port 443). Corporate firewalls and NAT permit outbound HTTPS/WSS traffic freely. Once authenticated, the persistent tunnel lets the cloud dispatch tasks to your local workspace.
 
 2. **Native IDE Setup (1 Step):**
    Generate your `ESSOT_API_KEY` from **User Settings ⚙️** in the ESSOT Web App, and configure it directly in your IDE's MCP config:
@@ -140,7 +139,7 @@ When connecting to the cloud-hosted ESSOT Web App (`https://essot.space`):
    🟢 Outbound WebSocket tunnel established with ESSOT Cloud. Permanent tunnel active.
    ```
 
-   Now, clicking **Scaffold Local SSOT** or **Generate Plan** in the Web App, or running Forge verification tests, immediately dispatches tasks to your local workspace without any terminal commands or firewall adjustments.
+   Now, clicking **Scaffold Local SSOT** or **Generate Plan** in the Web App, or running Forge verification tests, immediately dispatches tasks to your local workspace without any terminal commands.
 
 ---
 
