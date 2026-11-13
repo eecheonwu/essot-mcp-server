@@ -35,82 +35,13 @@ When connected to your IDE, the AI agent gains access to the following tools:
 
 ---
 
-## 📦 Installation & Usage
+## 📦 Installation & Quickstart
 
-You can run the ESSOT MCP Server either by cloning it locally or by running it remotely directly from GitHub using `uv`.
+No manual repository downloads or cloning required. Once published to PyPI, your AI IDE can run `essot-mcp-server` on demand using `uvx` (or `pipx`).
 
-### Option A: Local Installation (Recommended)
+### 1-Step Setup (Recommended)
 
-For the best development experience and to keep your API keys secure, we recommend cloning the repository locally.
-
-1. **Clone the Repository:**
-
-```bash
-git clone https://github.com/eecheonwu/essot-mcp-server.git
-cd essot-mcp-server
-```
-
-1. **IDE Configuration:**
-
-Add the following to your IDE's MCP configuration file (e.g., `mcp_config.json` or `claude_desktop_config.json`). Update the `--directory` path to match where you cloned the repository.
-
-```json
-{
-  "mcpServers": {
-    "essot-mcp-server": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/path/to/your/local/essot-mcp-server",
-        "python",
-        "essot_mcp_server/server.py"
-      ],
-      "env": {
-        // Optional if using ESSOT Web App PKCE:
-        // "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "ESSOT_API_URL": "https://essot.space",
-        "ESSOT_API_KEY": "your-essot-api-key-here"
-      }
-    }
-  }
-}
-```
-
-### Option B: Remote Execution (No Cloning Required)
-
-You can run the MCP server directly from the remote GitHub repository using `uv`'s ability to run code from Git URLs.
-
-**1. Full Features (Includes Outbound Worker Tunnel)**
-
-To ensure the background outbound worker starts properly, you must run the server as a module. This establishes the permanent encrypted tunnel with ESSOT Cloud:
-
-```json
-{
-  "mcpServers": {
-    "essot-mcp-server": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--with",
-        "git+https://github.com/eecheonwu/essot-mcp-server.git",
-        "-m",
-        "essot_mcp_server.server"
-      ],
-      "env": {
-        // Optional if using ESSOT Web App PKCE:
-        // "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "ESSOT_API_URL": "https://essot.space",
-        "ESSOT_API_KEY": "your-essot-api-key-here"
-      }
-    }
-  }
-}
-```
-
-**2. MCP Tools Only (Standalone Stdio Mode)**
-
-If you only want the local IDE tools and do not wish to run the background worker tunnel:
+Add `essot-mcp-server` directly to your IDE's MCP configuration:
 
 ```json
 {
@@ -118,29 +49,62 @@ If you only want the local IDE tools and do not wish to run the background worke
     "essot-mcp-server": {
       "command": "uvx",
       "args": [
-        "--from",
-        "git+https://github.com/eecheonwu/essot-mcp-server.git",
         "essot-mcp-server"
       ],
       "env": {
-        // Optional if using ESSOT Web App PKCE:
-        // "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-        "ESSOT_API_URL": "https://essot.space",
-        "ESSOT_API_KEY": "your-essot-api-key-here"
+        "ESSOT_API_KEY": "essot_your_api_key_here"
       }
     }
   }
 }
 ```
 
-> **💡 Tip:** Both configurations automatically start the background outbound worker tunnel whenever your IDE launches the server, seamlessly bridging tasks with ESSOT Cloud.
+> **Note:** If your ESSOT instance is self-hosted or uses a custom domain, optionally set `"ESSOT_API_URL": "https://your-domain.com"`. By default, it connects to `https://essot.space`.
 
-### Supported IDEs
+### Alternative Runners
 
-- **Claude Desktop**: Add to `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS).
-- **Antigravity CLI / IDE**: Add to `~/.gemini/config/mcp_config.json`.
-- **Cursor**: Configure via Settings > Features > MCP.
-- **VSCode**: Add to `.vscode/mcp_config.json`.
+#### Using pipx:
+```json
+{
+  "mcpServers": {
+    "essot-mcp-server": {
+      "command": "pipx",
+      "args": [
+        "run",
+        "essot-mcp-server"
+      ],
+      "env": {
+        "ESSOT_API_KEY": "essot_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+#### Traditional pip installation:
+```bash
+pip install essot-mcp-server
+```
+```json
+{
+  "mcpServers": {
+    "essot-mcp-server": {
+      "command": "essot-mcp-server",
+      "env": {
+        "ESSOT_API_KEY": "essot_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### Supported IDEs & Configuration Locations
+
+- **Claude Desktop**: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS).
+- **Antigravity CLI / IDE**: `~/.gemini/config/mcp_config.json`.
+- **Cursor**: Settings > Features > MCP.
+- **VSCode**: `.vscode/mcp_config.json`.
+
 
 ---
 
@@ -158,13 +122,9 @@ When connecting to the cloud-hosted ESSOT Web App (`https://essot.space`):
    {
      "mcpServers": {
        "essot-mcp-server": {
-         "command": "uv",
+         "command": "uvx",
          "args": [
-           "run",
-           "--with",
-           "git+https://github.com/eecheonwu/essot-mcp-server.git",
-           "-m",
-           "essot_mcp_server.server"
+           "essot-mcp-server"
          ],
          "env": {
            "ESSOT_API_KEY": "essot_your_api_key_here"
