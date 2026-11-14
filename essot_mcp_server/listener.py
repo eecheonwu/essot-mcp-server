@@ -1,11 +1,12 @@
 import os
-import logging
 import sys
 import json
+import random
 import asyncio
+import logging
 import threading
+from pathlib import Path
 from typing import List, Dict, Optional, Any
-from contextlib import asynccontextmanager
 
 try:
     from dotenv import load_dotenv
@@ -13,18 +14,15 @@ try:
 except ImportError:
     pass
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 from pydantic import BaseModel
 
-# Import our MCP server and patcher functions
 from essot_mcp_server.server import (
     generate_implementation_plan,
     generate_task_plan,
     generate_test_plan,
     get_knowledge_dir,
     get_project_root,
+    _scaffold_agent_packages,
 )
 from essot_mcp_server.patcher import (
     apply_patch_to_local_workspace,
@@ -33,14 +31,14 @@ from essot_mcp_server.patcher import (
 )
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
-logger = logging.getLogger("trigger_listener")
+logger = logging.getLogger("essot_worker")
 
 
 class TriggerPayload(BaseModel):
     project_id: str
     plan_id: Optional[str] = None
     plan_type: str
-    artifacts: List[Dict] = []
+    artifacts: List[Dict[str, Any]] = []
     graph_context: str = ""
     project_path: Optional[str] = None
     provider: str = "openrouter"
@@ -58,11 +56,15 @@ plan_lock = threading.Lock()
 
 
 def process_plan(payload: TriggerPayload):
+    """Processes incoming plan generation or local SSOT sync commands."""
     with plan_lock:
-        if payload.api_key:
-            os.environ["OPENROUTER_API_KEY"] = payload.api_key
+        if payload.api_key and not os.environ.get("ESSOT_API_KEY"):
+            os.environ["ESSOT_API_KEY"] = payload.api_key
+        if payload.api_url and not os.environ.get("ESSOT_API_URL"):
+            os.environ["ESSOT_API_URL"] = payload.api_url
+
         knowledge_dir = get_knowledge_dir(payload.project_path)
-        logger.info(f"Received trigger to generate {payload.plan_type} in {knowledge_dir}")
+        logger.info(f"Received task to process {payload.plan_type} in {knowledge_dir}")
 
         # Scaffold SSOT directories
         dirs = ["requirements", "architecture", "system", "testing", "agents"]
@@ -84,55 +86,41 @@ directories:
   testing: "Test specifications and coverage"
   agents: "AI Agent context packages"
 """
-            ssot_yaml_path.write_text(ssot_yaml_content, encoding='utf-8')
+            ssot_yaml_path.write_text(ssot_yaml_content, encoding="utf-8")
 
         # Map artifacts to appropriate directories
         for artifact in payload.artifacts:
             name = artifact.get("name", "artifact")
-            if not name.endswith(".md"):
+            if not name.endswith(".md") and not name.endswith(".yaml"):
                 name += ".md"
 
-            atype = artifact.get("type", "")
-            if atype == "SRD":
+            atype = str(artifact.get("type", "")).upper()
+            if atype in ("SRD", "REQUIREMENT", "REQUIREMENTS"):
                 target_path = knowledge_dir / "requirements" / name
-            elif atype in ("ADR", "UML", "C4"):
+            elif atype in ("ADR", "UML", "C4", "C4_DIAGRAM", "ARCHITECTURE"):
                 target_path = knowledge_dir / "architecture" / name
-            elif atype in ("TEST_SPEC", "Test Spec"):
+            elif atype in ("TEST_SPEC", "TEST SPEC", "TESTING"):
                 target_path = knowledge_dir / "testing" / name
             else:
                 target_path = knowledge_dir / "system" / name
 
-            content = artifact.get("content")
-            if content is None:
-                content = ""
-
-            target_path.write_text(content, encoding='utf-8')
+            content = artifact.get("content") or ""
+            target_path.write_text(content, encoding="utf-8")
 
         if payload.graph_context:
-            (knowledge_dir / "system" / "WEB_GRAPH_CONTEXT.md").write_text(payload.graph_context, encoding='utf-8')
+            (knowledge_dir / "system" / "WEB_GRAPH_CONTEXT.md").write_text(payload.graph_context, encoding="utf-8")
 
-        if payload.plan_type == "Implementation Plan":
+        if payload.plan_type in ("Implementation Plan", "Implementation_Plan"):
             generate_implementation_plan(project_path=payload.project_path, provider=payload.provider)
-        elif payload.plan_type == "Task Plan":
+        elif payload.plan_type in ("Task Plan", "Task_Plan"):
             generate_task_plan(project_path=payload.project_path, provider=payload.provider)
-        elif payload.plan_type == "Test Plan":
+        elif payload.plan_type in ("Test Plan", "Test_Plan"):
             generate_test_plan(project_path=payload.project_path, provider=payload.provider)
         elif payload.plan_type == "Local SSOT Sync":
-            from essot_mcp_server.server import _get_context
-            context = _get_context(knowledge_dir)
-            agents_dir = knowledge_dir / "agents"
-
-            frontend_agent = f"# Frontend Engineer Agent\n\n## Role\nYou are the Frontend UI Engineer. Your job is to implement the user interface based on `implementation-plan.md`, `task-plan.md`, and the SSOT.\n\n## Context\n{context}"
-            backend_agent = f"# Backend Engineer Agent\n\n## Role\nYou are the Backend API Engineer. Your job is to implement the server logic, database models, and APIs based on `implementation-plan.md`, `task-plan.md`, and the SSOT.\n\n## Context\n{context}"
-            qa_agent = f"# QA Testing Agent\n\n## Role\nYou are the Test Engineer. Your job is to ensure code quality by executing and verifying `test-plan.md` against the SSOT.\n\n## Context\n{context}"
-
-            (agents_dir / "frontend_agent.md").write_text(frontend_agent, encoding="utf-8")
-            (agents_dir / "backend_agent.md").write_text(backend_agent, encoding="utf-8")
-            (agents_dir / "qa_agent.md").write_text(qa_agent, encoding="utf-8")
-            logger.info("Local SSOT successfully scaffolded. Agents generated. Skipping plan generation.")
+            _scaffold_agent_packages(knowledge_dir)
+            logger.info("Local SSOT successfully scaffolded. Multi-agent packages assembled.")
         else:
             logger.warning(f"Unknown plan type: {payload.plan_type}")
-            generate_implementation_plan(project_path=payload.project_path, provider=payload.provider)
 
         if payload.plan_id:
             try:
@@ -151,11 +139,12 @@ directories:
 
 def execute_sync_task(payload_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Executes a task synchronously (run in a thread pool for WebSocket worker or HTTP calls).
+    Executes a task synchronously (invoked in a thread pool for outbound WebSocket worker).
     Handles:
       - Read Files
       - Apply Patch
       - Verify Patch
+      - Write File
       - Local SSOT Sync & Plan Generations
     """
     plan_type = payload_dict.get("plan_type", "")
@@ -223,22 +212,22 @@ async def run_outbound_websocket_worker():
     """
     Maintains a persistent, outbound WebSocket connection to the ESSOT Cloud backend.
     Enables permanent, zero-configuration enterprise communication.
-    Includes robust error catching to never crash when ESSOT_API_KEY is missing or invalid.
+    Zero open ports required on the local machine.
     """
     logged_missing_key = False
+    retry_delay = 3.0
 
     while True:
         api_key = os.environ.get("ESSOT_API_KEY", "").strip()
         api_url = os.environ.get("ESSOT_API_URL", "https://essot.space").rstrip("/")
 
-        # Error Catching: When user has not set ESSOT_API_KEY
+        # When user has not set ESSOT_API_KEY
         if not api_key:
             if not logged_missing_key:
                 logger.warning(
                     "\n" + "=" * 78 + "\n"
                     " [NOTICE] ESSOT_API_KEY is not set.\n"
                     " • Outbound cloud tunnel to ESSOT Web App is paused.\n"
-                    " • Local HTTP listener is still active at http://127.0.0.1:8123/trigger.\n"
                     " • To enable permanent outbound tunnel mode:\n"
                     "     In Linux/macOS : export ESSOT_API_KEY=\"essot_your_api_key\"\n"
                     "     In Windows PS  : $env:ESSOT_API_KEY=\"essot_your_api_key\"\n"
@@ -255,7 +244,6 @@ async def run_outbound_websocket_worker():
         ws_endpoint = f"{ws_base}/api/v1/ws/worker?token={api_key}"
 
         logger.info(f"Connecting outbound WebSocket worker to {ws_base}...")
-        retry_delay = 3
 
         try:
             import websockets
@@ -266,7 +254,7 @@ async def run_outbound_websocket_worker():
                 close_timeout=10,
             ) as ws:
                 logger.info("🟢 Outbound WebSocket tunnel established with ESSOT Cloud. Permanent tunnel active.")
-                retry_delay = 3
+                retry_delay = 3.0
 
                 while True:
                     msg_text = await ws.recv()
@@ -284,7 +272,6 @@ async def run_outbound_websocket_worker():
                         continue
                     elif msg_type == "error":
                         logger.warning("🔴 Cloud authentication error: %s (Check your ESSOT_API_KEY)", data.get("message"))
-                        # Delay before retrying to prevent rapid spamming on invalid credentials
                         await asyncio.sleep(10)
                         break
                     elif msg_type == "pong":
@@ -315,58 +302,8 @@ async def run_outbound_websocket_worker():
             logger.info("WebSocket worker task cancelled.")
             break
         except Exception as exc:
-            logger.warning("WebSocket worker connection blip (%s). Reconnecting in %ss...", exc, retry_delay)
-            await asyncio.sleep(retry_delay)
-            retry_delay = min(int(retry_delay * 1.5), 30)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Launch outbound WebSocket worker in background task
-    worker_task = asyncio.create_task(run_outbound_websocket_worker())
-    yield
-    worker_task.cancel()
-    try:
-        await worker_task
-    except asyncio.CancelledError:
-        pass
-
-
-app = FastAPI(title="ESSOT Local MCP Webhook & Worker Listener", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.post("/trigger")
-async def trigger_webhook(payload: TriggerPayload, background_tasks: BackgroundTasks):
-    """Webhook listener that kicks off local SSOT generation, patch applications, or verification checks."""
-    logger.info(f"Webhook hit for project {payload.project_id}: {payload.plan_type}")
-
-    payload_dict = payload.model_dump()
-    plan_type = payload.plan_type
-
-    if plan_type in (
-        "Read Files", "Get Files", "File Content", "Inspect Files",
-        "Apply Patch", "Patch", "Forge Patch",
-        "Verify Patch", "Run Verification", "Verification"
-    ):
-        try:
-            return execute_sync_task(payload_dict)
-        except Exception as exc:
-            logger.error(f"Failed to execute {plan_type}: {exc}")
-            raise HTTPException(status_code=400, detail=str(exc))
-
-    # Asynchronous plan and SSOT generation
-    background_tasks.add_task(process_plan, payload)
-    return {"status": "accepted", "message": f"Delegated generation for {payload.plan_type}"}
-
-
-if __name__ == "__main__":
-    logger.info("Starting local ESSOT MCP Listener & Worker on port 8123...")
-    uvicorn.run(app, host="0.0.0.0", port=8123)
+            jitter = random.uniform(0.5, 1.5)
+            sleep_time = retry_delay + jitter
+            logger.warning("WebSocket worker connection blip (%s). Reconnecting in %.1fs...", exc, sleep_time)
+            await asyncio.sleep(sleep_time)
+            retry_delay = min(retry_delay * 1.5, 30.0)
