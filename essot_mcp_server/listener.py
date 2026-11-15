@@ -110,13 +110,14 @@ directories:
         if payload.graph_context:
             (knowledge_dir / "system" / "WEB_GRAPH_CONTEXT.md").write_text(payload.graph_context, encoding="utf-8")
 
-        if payload.plan_type in ("Implementation Plan", "Implementation_Plan"):
+        clean_pt = (payload.plan_type or "").strip().lower()
+        if "implementation" in clean_pt:
             generate_implementation_plan(project_path=payload.project_path, provider=payload.provider)
-        elif payload.plan_type in ("Task Plan", "Task_Plan"):
+        elif "task" in clean_pt:
             generate_task_plan(project_path=payload.project_path, provider=payload.provider)
-        elif payload.plan_type in ("Test Plan", "Test_Plan"):
+        elif "test" in clean_pt:
             generate_test_plan(project_path=payload.project_path, provider=payload.provider)
-        elif payload.plan_type == "Local SSOT Sync":
+        elif "ssot" in clean_pt:
             _scaffold_agent_packages(knowledge_dir)
             logger.info("Local SSOT successfully scaffolded. Multi-agent packages assembled.")
         else:
