@@ -273,7 +273,7 @@ async def run_outbound_websocket_worker():
                             await ws.send(json.dumps({
                                 "type": "worker_info",
                                 "client_name": "ESSOT Local MCP Server",
-                                "version": "0.2.0"
+                                "version": "0.2.1"
                             }))
                         except Exception:
                             pass
