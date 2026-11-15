@@ -8,6 +8,11 @@ import threading
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 
+# Ensure repository root is in sys.path for direct execution or standalone scripts
+_repo_root = Path(__file__).resolve().parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -16,19 +21,34 @@ except ImportError:
 
 from pydantic import BaseModel
 
-from essot_mcp_server.server import (
-    generate_implementation_plan,
-    generate_task_plan,
-    generate_test_plan,
-    get_knowledge_dir,
-    get_project_root,
-    _scaffold_agent_packages,
-)
-from essot_mcp_server.patcher import (
-    apply_patch_to_local_workspace,
-    run_local_verification,
-    read_workspace_files,
-)
+try:
+    from essot_mcp_server.server import (
+        generate_implementation_plan,
+        generate_task_plan,
+        generate_test_plan,
+        get_knowledge_dir,
+        get_project_root,
+        _scaffold_agent_packages,
+    )
+    from essot_mcp_server.patcher import (
+        apply_patch_to_local_workspace,
+        run_local_verification,
+        read_workspace_files,
+    )
+except (ImportError, ModuleNotFoundError):
+    from server import (
+        generate_implementation_plan,
+        generate_task_plan,
+        generate_test_plan,
+        get_knowledge_dir,
+        get_project_root,
+        _scaffold_agent_packages,
+    )
+    from patcher import (
+        apply_patch_to_local_workspace,
+        run_local_verification,
+        read_workspace_files,
+    )
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("essot_worker")

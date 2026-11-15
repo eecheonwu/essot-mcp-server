@@ -7,6 +7,11 @@ import datetime
 from pathlib import Path
 from typing import Optional
 
+# Ensure repository root is in sys.path for direct execution or standalone scripts
+_repo_root = Path(__file__).resolve().parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -19,7 +24,7 @@ except (ImportError, ModuleNotFoundError):
     try:
         from fastmcp import FastMCP
     except (ImportError, ModuleNotFoundError):
-        from mcp.server.mcpserver import MCPServer as FastMCP
+        from mcp.server import FastMCP
 
 import httpx
 import requests
@@ -223,15 +228,15 @@ def _generate_and_save_plan(
                 json=payload,
                 headers=headers,
             )
-            if resp.status_code != 201:
+            if resp.status_code not in (200, 201):
                 return f"Error: Plan generation failed on ESSOT server ({resp.status_code}): {resp.text}"
 
             plan_data = resp.json()
             markdown_content = plan_data.get("markdown")
             if not markdown_content:
                 # Fallback if markdown field wasn't included
-                from app.engines.planning.engine import format_plan_markdown  # noqa
-                markdown_content = json.dumps(plan_data.get("plan_data", {}), indent=2)
+                plan_dict = plan_data.get("plan_data", {})
+                markdown_content = json.dumps(plan_dict, indent=2) if isinstance(plan_dict, (dict, list)) else str(plan_dict)
 
             output_path = get_project_root(project_path) / filename
             output_path.write_text(markdown_content, encoding="utf-8")
@@ -376,7 +381,10 @@ def start_background_worker():
     """Starts the outbound WebSocket worker in a background daemon thread."""
     import threading
     import asyncio
-    from essot_mcp_server.listener import run_outbound_websocket_worker
+    try:
+        from essot_mcp_server.listener import run_outbound_websocket_worker
+    except (ImportError, ModuleNotFoundError):
+        from listener import run_outbound_websocket_worker
 
     def worker_thread():
         loop = asyncio.new_event_loop()

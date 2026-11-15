@@ -122,3 +122,66 @@ def test_plan_generation_requires_api_key(tmp_path: Path, monkeypatch):
 
     res = generate_implementation_plan(project_path=str(tmp_path))
     assert "ESSOT_API_KEY environment variable is not set" in res
+
+
+def test_plan_generation_fallback_no_module_error(tmp_path: Path, monkeypatch):
+    """Test that plan generation without markdown field falls back cleanly without ModuleNotFoundError."""
+    monkeypatch.setenv("ESSOT_API_KEY", "test-key")
+    ssot_dir = tmp_path / "ssot"
+    ssot_dir.mkdir(parents=True)
+    (ssot_dir / "ssot.yaml").write_text("project_id: test-proj-id\n", encoding="utf-8")
+
+    class MockResponse:
+        status_code = 201
+        def json(self):
+            return {"plan_data": {"overview": "Fallback strategy", "tasks": [1, 2, 3]}}
+
+    class MockClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def post(self, *args, **kwargs):
+            return MockResponse()
+
+    monkeypatch.setattr("httpx.Client", MockClient)
+
+    res = generate_implementation_plan(project_path=str(tmp_path))
+    assert "generated successfully" in res
+    output_file = tmp_path / "implementation-plan.md"
+    assert output_file.exists()
+    content = output_file.read_text(encoding="utf-8")
+    assert "Fallback strategy" in content
+
+
+def test_plan_generation_success_with_markdown(tmp_path: Path, monkeypatch):
+    """Test plan generation succeeds when markdown is returned."""
+    monkeypatch.setenv("ESSOT_API_KEY", "test-key")
+    ssot_dir = tmp_path / "ssot"
+    ssot_dir.mkdir(parents=True)
+    (ssot_dir / "ssot.yaml").write_text("project_id: test-proj-id\n", encoding="utf-8")
+
+    class MockResponse:
+        status_code = 200
+        def json(self):
+            return {"markdown": "# Full Implementation Plan\n\nAll tasks included."}
+
+    class MockClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def post(self, *args, **kwargs):
+            return MockResponse()
+
+    monkeypatch.setattr("httpx.Client", MockClient)
+
+    res = generate_implementation_plan(project_path=str(tmp_path))
+    assert "generated successfully" in res
+    output_file = tmp_path / "implementation-plan.md"
+    assert output_file.exists()
+    assert "# Full Implementation Plan" in output_file.read_text(encoding="utf-8")
