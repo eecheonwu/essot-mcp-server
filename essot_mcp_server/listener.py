@@ -269,11 +269,27 @@ async def run_outbound_websocket_worker():
                     msg_type = data.get("type")
                     if msg_type == "connected":
                         logger.info("🟢 Authenticated with ESSOT Cloud: %s", data.get("message"))
+                        try:
+                            await ws.send(json.dumps({
+                                "type": "worker_info",
+                                "client_name": "ESSOT Local MCP Server",
+                                "version": "0.2.0"
+                            }))
+                        except Exception:
+                            pass
                         continue
                     elif msg_type == "error":
                         logger.warning("🔴 Cloud authentication error: %s (Check your ESSOT_API_KEY)", data.get("message"))
                         await asyncio.sleep(10)
                         break
+                    elif msg_type == "ping":
+                        pong_payload = {
+                            "type": "pong",
+                            "request_id": data.get("request_id"),
+                            "timestamp": data.get("timestamp")
+                        }
+                        await ws.send(json.dumps(pong_payload))
+                        continue
                     elif msg_type == "pong":
                         continue
 
